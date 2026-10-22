@@ -1,0 +1,696 @@
+     1→/**
+     2→ * Orchestrator — the agent's brain.
+     3→ *
+     4→ * Takes (message | action) + context, runs the right tools, updates the
+     5→ * context, and returns a ChatTurn made ONLY of typed, validated blocks.
+     6→ * Deterministic and testable; no LLM in the loop (zero hallucination risk
+     7→ * on prices/availability).
+     8→ */
+     9→import type {
+    10→  Block,
+    11→  ChatTurn,
+    12→  ConversationContext,
+    13→  Criteria,
+    14→  Priority,
+    15→  Product,
+    16→} from "@/lib/types";
+    17→import { CATALOG, getProduct } from "@/lib/data/catalog";
+    18→import { STORES as STORE_LIST } from "@/lib/data/stores";
+    19→import {
+    20→  alternativeStores,
+    21→  buildComparison,
+    22→  findStores,
+    23→  searchProducts,
+    24→  simulateContact,
+    25→  sortStores,
+    26→  toCardData,
+    27→} from "@/lib/agent/tools";
+    28→import { parseMessage, normalize, type NluResult } from "@/lib/agent/nlu";
+    29→import { formatToman, formatTomanShort, toFaDigits } from "@/lib/format";
+    30→import { formatDistance } from "@/lib/geo";
+    31→import { makeScoreContext, priorityScore } from "@/lib/scoring";
+    32→
+    33→/* ------------------------------------------------------------------ */
+    34→/* Small helpers                                                       */
+    35→/* ------------------------------------------------------------------ */
+    36→
+    37→const faPriorities: Record<Priority, string> = {
+    38→  comfort: "راحتی",
+    39→  price: "قیمت",
+    40→  durability: "دوام",
+    41→  style: "استایل",
+    42→};
+    43→
+    44→function productDetailsBlock(p: Product, params: Parameters<typeof toCardData>[1], maxScore: number): Block {
+    45→  return { type: "product_details", product: toCardData(p, params, maxScore) };
+    46→}
+    47→
+    48→function recommendationBlocks(
+    49→  products: Product[],
+    50→  ctx: ConversationContext,
+    51→  opts: { question?: string; introPrefix?: string; changed?: string[] } = {}
+    52→): { blocks: Block[]; context: ConversationContext } {
+    53→  const params = {
+    54→    budgetMax: ctx.budgetMax,
+    55→    gender: ctx.gender,
+    56→    useCase: ctx.useCase,
+    57→    priorities: ctx.priorities,
+    58→  };
+    59→  const filtered = searchProducts(params);
+    60→  const items = filtered.slice(0, 6);
+    61→  const next: ConversationContext = {
+    62→    ...ctx,
+    63→    recommendedIds: items.map((p) => p.id),
+    64→    stage: "recommendations",
+    65→  };
+    66→
+    67→  if (items.length === 0) {
+    68→    const cheapest = [...CATALOG].sort((a, b) => a.priceFrom - b.priceFrom)[0];
+    69→    return {
+    70→      context: { ...next, recommendedIds: [] },
+    71→      blocks: [
+    72→        {
+    73→          type: "empty_state",
+    74→          title: "با این بودجه گزینه‌ای پیدا نشد",
+    75→          description: ctx.budgetMax
+    76→            ? `ارزان‌ترین کتانی موجود حدود ${formatTomanShort(cheapest.priceFrom)} است.`
+    77→            : "فیلترها رو کمی بازتر کن.",
+    78→          replies: [
+    79→            { label: `بودجه ${formatTomanShort(cheapest.priceFrom)}`, message: `بودجه‌ام ${Math.round(cheapest.priceFrom / 1_000_000)} میلیونه` },
+    80→            { label: "ارزون‌ترین‌ها رو نشون بده", message: "ارزون‌ترین کتانی‌ها رو نشون بده" },
+    81→            { label: "بودجه مهم نیست", message: "بودجه مهم نیست، بهترین‌ها رو نشون بده" },
+    82→          ],
+    83→        },
+    84→      ],
+    85→    };
+    86→  }
+    87→
+    88→  const allCtx = makeScoreContext(products.length ? products : items);
+    89→  const maxScore = Math.max(
+    90→    ...items.map((p) => priorityScore(p, ctx.priorities as never, allCtx))
+    91→  );
+    92→
+    93→  const appliedFilters: string[] = [];
+    94→  if (ctx.budgetMax) appliedFilters.push(`زیر ${formatTomanShort(ctx.budgetMax)}`);
+    95→  if (ctx.gender === "men") appliedFilters.push("مردانه");
+    96→  if (ctx.gender === "women") appliedFilters.push("زنانه");
+    97→  if (ctx.useCase === "daily") appliedFilters.push("روزمره");
+    98→  if (ctx.useCase === "sport") appliedFilters.push("ورزشی");
+    99→  if (ctx.priorities.length)
+   100→    appliedFilters.push(`اولویت ${ctx.priorities.map((p) => faPriorities[p]).join(" و ")}`);
+   101→
+   102→  const cheapest = items.reduce((a, b) => (a.priceFrom <= b.priceFrom ? a : b));
+   103→  const intro =
+   104→    (opts.introPrefix ? opts.introPrefix + " " : "") +
+   105→    (ctx.budgetMax
+   106→      ? `با بودجه ${formatTomanShort(ctx.budgetMax)}، ${items.length} مدل مناسب پیدا کردم. ارزون‌ترین‌ش ${cheapest.brand} ${cheapest.model} از ${formatTomanShort(cheapest.priceFrom)} شروع می‌شه.`
+   107→      : `${items.length} مدل مناسب پیدا کردم؛ ارزون‌ترین‌ش ${cheapest.brand} ${cheapest.model} از ${formatTomanShort(cheapest.priceFrom)} شروع می‌شه.`) +
+   108→    (opts.changed && opts.changed.length ? ` ${opts.changed.join(" ")}` : "");
+   109→
+   110→  const blocks: Block[] = [
+   111→    {
+   112→      type: "search_context",
+   113→      queryLabel: ctx.category ? "جستجوی کتانی" : "جستجوی محصول",
+   114→      productCount: items.length,
+   115→      sourceCount: items.reduce((a, p) => a + p.sourceCount, 0),
+   116→      appliedFilters,
+   117→    },
+   118→    { type: "text", text: intro.trim() },
+   119→  ];
+   120→
+   121→  const question = opts.question ?? (ctx.useCase ? undefined : "کتانی رو برای استفاده‌ی روزمره می‌خوای یا ورزشی؟");
+   122→
+   123→  blocks.push({
+   124→    type: "product_carousel",
+   125→    products: items.map((p) => toCardData(p, params, maxScore)),
+   126→    title: "پیشنهادهای تُرب",
+   127→  });
+   128→
+   129→  if (question) {
+   130→    blocks.push({ type: "text", text: question });
+   131→    blocks.push({
+   132→      type: "quick_replies",
+   133→      replies: [
+   134→        { label: "برای روزمره", message: "برای استفاده روزمره می‌خوام" },
+   135→        { label: "برای ورزش", message: "برای ورزش می‌خوام" },
+   136→        { label: "فرقی نداره", message: "فرقی نداره" },
+   137→      ],
+   138→    });
+   139→  }
+   140→  blocks.push({ type: "preference_selector", active: ctx.priorities });
+   141→  return { blocks, context: next };
+   142→}
+   143→
+   144→/* ------------------------------------------------------------------ */
+   145→/* Comparison turn builder (shared: initial compare + criteria change) */
+   146→/* ------------------------------------------------------------------ */
+   147→
+   148→function comparisonTurn(
+   149→  ctx: ConversationContext,
+   150→  products: Product[]
+   151→): { turn: ChatTurn; context: ConversationContext } {
+   152→  const criteria: Criteria = ctx.priorities[0] ?? "comfort";
+   153→  ctx.criteria = criteria;
+   154→  const comparison = buildComparison(products, ctx.priorities);
+   155→  const winner = comparison.entries.find((e) => e.productId === comparison.winnerBy[criteria]);
+   156→  const text = winner
+   157→    ? `با ملاک ${faPriorities[criteria]}، ${winner.name} جلو می‌زنه (${toFaDigits(winner.scores[criteria])} از ۱۰۰). ملاک مقایسه رو می‌تونی از بالای کارت‌ها عوض کنی.`
+   158→    : "مقایسه آماده‌ست.";
+   159→  ctx.stage = "comparing";
+   160→  ctx.compareIds = products.map((p) => p.id);
+   161→  return {
+   162→    context: ctx,
+   163→    turn: {
+   164→      text,
+   165→      blocks: [
+   166→        { type: "comparison_panel", comparison },
+   167→        {
+   168→          type: "quick_replies",
+   169→          replies: [
+   170→            { label: "کجا حضوری بخرمش؟", message: "کجا حضوری بخرمش؟" },
+   171→            { label: "ملاک: قیمت", message: "مقایسه بر اساس قیمت" },
+   172→            { label: "ملاک: راحتی", message: "مقایسه بر اساس راحتی" },
+   173→          ],
+   174→        },
+   175→      ],
+   176→    },
+   177→  };
+   178→}
+   179→
+   180→/* ------------------------------------------------------------------ */
+   181→/* Message handler                                                     */
+   182→/* ------------------------------------------------------------------ */
+   183→
+   184→export function handleMessage(
+   185→  raw: string,
+   186→  ctx: ConversationContext
+   187→): { turn: ChatTurn; context: ConversationContext } {
+   188→  const nlu = parseMessage(raw, ctx);
+   189→  return route(nlu, raw, ctx);
+   190→}
+   191→
+   192→function route(
+   193→  nlu: NluResult,
+   194→  raw: string,
+   195→  ctxIn: ConversationContext
+   196→): { turn: ChatTurn; context: ConversationContext } {
+   197→  let ctx: ConversationContext = { ...ctxIn };
+   198→  const t = normalize(raw);
+   199→
+   200→  /* ---------- greeting ---------- */
+   201→  if (nlu.intent === "greet") {
+   202→    return {
+   203→      context: ctx,
+   204→      turn: {
+   205→        text: "سلام! من دستیار خرید تُربم. کتانی و کفش‌های تهران رو می‌شناسم — از قیمت تا موجودی حضوری. مثلا بنویس: «کتانی راحتی زیر ۴ میلیون تومان».",
+   206→        blocks: [
+   207→          {
+   208→            type: "quick_replies",
+   209→            replies: [
+   210→              { label: "کتانی راحتی زیر ۴ میلیون", message: "کتانی راحتی زیر ۴ میلیون تومان می‌خوام" },
+   211→              { label: "کتانی ورزشی مردانه", message: "کتانی ورزشی مردانه می‌خوام" },
+   212→              { label: "ارزون‌ترین کتانی‌ها", message: "ارزون‌ترین کتانی‌ها رو نشون بده" },
+   213→            ],
+   214→          },
+   215→        ],
+   216→      },
+   217→    };
+   218→  }
+   219→
+   220→  /* ---------- thanks ---------- */
+   221→  if (nlu.intent === "thanks") {
+   222→    return {
+   223→      context: ctx,
+   224→      turn: {
+   225→        text: "خواهش می‌کنم! اگه چیز دیگه‌ای خواستی — مقایسه، فروشگاه یا خرید اقساطی — همین‌جا بگو.",
+   226→        blocks: [
+   227→          {
+   228→            type: "quick_replies",
+   229→            replies: ctx.recommendedIds.length
+   230→              ? [
+   231→                  { label: "کجا حضوری بخرم؟", message: "کجا حضوری بخرمش؟" },
+   232→                  { label: "مقایسه کن", message: "مقایسه‌شون کن" },
+   233→                ]
+   234→              : [{ label: "کتانی ببین", message: "می‌خوام کتانی بخرم" }],
+   235→          },
+   236→        ],
+   237→      },
+   238→    };
+   239→  }
+   240→
+   241→  /* ---------- explicit location message ---------- */
+   242→  if (nlu.locationName) {
+   243→    // resolve coordinates of chosen neighborhood (approx real anchor)
+   244→    const NEIGHBORHOOD_ANCHORS: Record<string, { lat: number; lng: number }> = {
+   245→      "سعادت‌آباد": { lat: 35.7797, lng: 51.3746 },
+   246→      "شهرک غرب": { lat: 35.762, lng: 51.366 },
+   247→      "ونک": { lat: 35.757, lng: 51.41 },
+   248→      "آرژانتین": { lat: 35.731, lng: 51.416 },
+   249→      "تجریش": { lat: 35.801, lng: 51.434 },
+   250→      "پاسداران": { lat: 35.787, lng: 51.47 },
+   251→      "نیاوران": { lat: 35.811, lng: 51.47 },
+   252→      "نارمک": { lat: 35.742, lng: 51.51 },
+   253→      "صادقیه": { lat: 35.716, lng: 51.348 },
+   254→      "بازار بزرگ تهران": { lat: 35.672, lng: 51.421 },
+   255→      "ولیعصر": { lat: 35.744, lng: 51.421 },
+   256→      "شریعتی": { lat: 35.764, lng: 51.44 },
+   257→    };
+   258→    const anchor = NEIGHBORHOOD_ANCHORS[nlu.locationName];
+   259→    if (anchor) {
+   260→      ctx.location = { name: nlu.locationName, ...anchor, source: "neighborhood" };
+   261→      ctx.pendingIntent = undefined;
+   262→      const product = resolveSelectedProduct(t, ctx);
+   263→      if (!product) {
+   264→        return {
+   265→          context: ctx,
+   266→          turn: {
+   267→            text: `موقعیت روی ${nlu.locationName} ثبت شد. حالا از کارت‌های محصول یک مدل انتخاب کن تا فروشگاه‌های اطرافت رو نشونت بدم.`,
+   268→            blocks: [],
+   269→          },
+   270→        };
+   271→      }
+   272→      return storesTurn(ctx, "باشه، از مکان شما فاصله‌ها رو حساب کردم.");
+   273→    }
+   274→  }
+   275→
+   276→  /* ---------- compare ---------- */
+   277→  if (nlu.intent === "compare") {
+   278→    let ids = ctx.compareIds;
+   279→    if (ids.length < 2) ids = ctx.recommendedIds.slice(0, 3);
+   280→    if (ids.length < 2) {
+   281→      return {
+   282→        context: ctx,
+   283→        turn: {
+   284→          text: "برای مقایسه، اول باید چند مدل انتخاب کنی. از کارت‌های محصول دکمه «مقایسه» رو بزن.",
+   285→          blocks: [],
+   286→        },
+   287→      };
+   288→    }
+   289→    if (nlu.priorities?.length) ctx.priorities = nlu.priorities;
+   290→    const products = ids.map((id) => getProduct(id)).filter((p): p is Product => Boolean(p));
+   291→    if (products.length < 2) {
+   292→      return { context: ctx, turn: { text: "مدل‌های مقایسه پیدا نشدن؛ دوباره انتخاب کن.", blocks: [] } };
+   293→    }
+   294→    return comparisonTurn(ctx, products);
+   295→  }
+   296→
+   297→  /* ---------- select product ---------- */
+   298→  if (nlu.intent === "select_product") {
+   299→    const picked = pickProductFromText(t, ctx) ?? getProduct(ctx.recommendedIds[0]);
+   300→    if (!picked) {
+   301→      return { context: ctx, turn: { text: "کدوم مدل رو می‌خوای؟ از کارت‌ها انتخاب کن.", blocks: [] } };
+   302→    }
+   303→    ctx.selectedProductId = picked.id;
+   304→    if (!ctx.compareIds.includes(picked.id)) ctx.compareIds = [...ctx.compareIds, picked.id].slice(-3);
+   305→    const params = {
+   306→      budgetMax: ctx.budgetMax,
+   307→      gender: ctx.gender,
+   308→      useCase: ctx.useCase,
+   309→      priorities: ctx.priorities,
+   310→    };
+   311→    const allCtx = makeScoreContext(CATALOG);
+   312→    return {
+   313→      context: ctx,
+   314→      turn: {
+   315→        text: `${picked.name} انتخاب شد. قیمت پایه از ${formatToman(picked.priceFrom)} شروع می‌شه. بگو «کجا حضوری بخرم» تا نزدیک‌ترین فروشگاه‌های تهران با موجودی واقعی رو نشونت بدم.`,
+   316→        blocks: [
+   317→          productDetailsBlock(picked, params, 100),
+   318→          {
+   319→            type: "quick_replies",
+   320→            replies: [
+   321→              { label: "کجا حضوری بخرمش؟", message: "کجا حضوری بخرمش؟" },
+   322→              { label: "فروشگاه اقساطی داره؟", message: "فروشگاه اقساطی داره؟" },
+   323→              { label: "مقایسه با بقیه", message: "مقایسه‌ش کن" },
+   324→            ],
+   325→          },
+   326→        ],
+   327→      },
+   328→    };
+   329→  }
+   330→
+   331→  /* ---------- find stores ---------- */
+   332→  if (nlu.intent === "find_stores") {
+   333→    resolveSelectedProduct(t, ctx);
+   334→    if (ctx.selectedProductId && nlu.priorities?.length) ctx.priorities = nlu.priorities;
+   335→
+   336→    if (!ctx.location) {
+   337→      ctx.pendingIntent = "location";
+   338→      return {
+   339→        context: ctx,
+   340→        turn: {
+   341→          text: "برای حساب کردن فاصله و نمایش روی نقشه، محل تقریبی‌ات رو بگو یا از موقعیت گوشی استفاده کن. آدرس دقیق ذخیره نمی‌شه.",
+   342→          blocks: [
+   343→            {
+   344→              type: "quick_replies",
+   345→              replies: [
+   346→                { label: "سعادت‌آباد", message: "سعادت‌آباد" },
+   347→                { label: "ونک", message: "ونک" },
+   348→                { label: "تجریش", message: "تجریش" },
+   349→                { label: "پاسداران", message: "پاسداران" },
+   350→                { label: "آرژانتین", message: "آرژانتین" },
+   351→                { label: "نارمک", message: "نارمک" },
+   352→                { label: "صادقیه", message: "صادقیه" },
+   353→                { label: "📍 موقعیت من (GPS)", payload: { requestGps: true }, message: "فروشگاه‌های نزدیکم رو نشون بده" },
+   354→              ],
+   355→            },
+   356→          ],
+   357→        },
+   358→      };
+   359→    }
+   360→    return storesTurn(ctx, `${getProduct(ctx.selectedProductId)?.name ?? "محصول"} در فروشگاه‌های تهران:`);
+   361→  }
+   362→
+   363→  /* ---------- cheapest store ---------- */
+   364→  if (nlu.intent === "cheapest_store") {
+   365→    if (!ctx.selectedProductId) {
+   366→      ctx.pendingIntent = "location";
+   367→      return {
+   368→        context: ctx,
+   369→        turn: { text: "اول مدل رو انتخاب کن، بعد ارزون‌ترین فروشگاه رو پیدا می‌کنم.", blocks: [] },
+   370→      };
+   371→    }
+   372→    if (!ctx.location) {
+   373→      ctx.pendingIntent = "location";
+   374→      return {
+   375→        context: ctx,
+   376→        turn: {
+   377→          text: "کدوم محله؟ فاصله‌ها رو از موقعیت شما حساب می‌کنم.",
+   378→          blocks: [
+   379→            {
+   380→              type: "quick_replies",
+   381→              replies: [
+   382→                { label: "سعادت‌آباد", message: "سعادت‌آباد" },
+   383→                { label: "ونک", message: "ونک" },
+   384→                { label: "تجریش", message: "تجریش" },
+   385→                { label: "پاسداران", message: "پاسداران" },
+   386→                { label: "آرژانتین", message: "آرژانتین" },
+   387→                { label: "نارمک", message: "نارمک" },
+   388→                { label: "صادقیه", message: "صادقیه" },
+   389→                { label: "📍 موقعیت من (GPS)", payload: { requestGps: true }, message: "فروشگاه‌های نزدیکم رو نشون بده" },
+   390→              ],
+   391→            },
+   392→          ],
+   393→        },
+   394→      };
+   395→    }
+   396→    ctx.storeFilters.sort = "price";
+   397→    return storesTurn(ctx, "ارزون‌ترین فروشگاه‌ها برای این مدل:");
+   398→  }
+   399→
+   400→  /* ---------- installment ---------- */
+   401→  if (nlu.intent === "installment") {
+   402→    ctx.storeFilters = { ...ctx.storeFilters, installmentOnly: true };
+   403→    ctx.stage = "installment";
+   404→    if (!ctx.selectedProductId || !ctx.location) {
+   405→      return {
+   406→        context: ctx,
+   407→        turn: {
+   408→          text: "فقط فروشگاه‌هایی که «خدمات اقساطی تاییدشده» دارن رو نشون می‌دم. برای این باید مدل و منطقه‌ات رو بدونم — بگو «کجا حضوری بخرم».",
+   409→          blocks: [],
+   410→        },
+   411→      };
+   412→    }
+   413→    const verifiedCount = findStores(
+   414→      ctx.selectedProductId,
+   415→      getProduct(ctx.selectedProductId)!.priceFrom,
+   416→      ctx.location,
+   417→      { installmentOnly: true }
+   418→    ).length;
+   419→    if (verifiedCount === 0) {
+   420→      return {
+   421→        context: ctx,
+   422→        turn: {
+   423→          text: "برای این مدل، فروشگاهی با «اقساط تاییدشده» پیدا نشد. فروشگاه‌های دارای ادعای اقساطی (تاییدنشده) در لیست اصلی مشخص شدن.",
+   424→          blocks: [],
+   425→        },
+   426→      };
+   427→    }
+   428→    return storesTurn(ctx, `${toFaDigits(verifiedCount)} فروشگاه خدمات اقساطی تاییدشده دارن:`);
+   429→  }
+   430→
+   431→  /* ---------- search / refine ---------- */
+   432→  if (nlu.intent === "search" || nlu.intent === "refine") {
+   433→    const changed: string[] = [];
+   434→    if (nlu.budgetMax) {
+   435→      const isChange = ctx.budgetMax !== nlu.budgetMax;
+   436→      ctx.budgetMax = nlu.budgetMax;
+   437→      if (isChange && ctx.stage !== "greeting") changed.push("بودجه به‌روزرسانی شد.");
+   438→    }
+   439→    if (nlu.gender) {
+   440→      if (ctx.gender !== nlu.gender) changed.push("فیلتر جنسیت اعمال شد.");
+   441→      ctx.gender = nlu.gender;
+   442→    }
+   443→    if (nlu.useCase) {
+   444→      if (ctx.useCase !== nlu.useCase) changed.push("نوع استفاده اعمال شد.");
+   445→      ctx.useCase = nlu.useCase;
+   446→    }
+   447→    if (nlu.priorities?.length) {
+   448→      const changedP = JSON.stringify(ctx.priorities) !== JSON.stringify(nlu.priorities);
+   449→      ctx.priorities = nlu.priorities;
+   450→      if (changedP) changed.push(`اولویت روی ${nlu.priorities.map((p) => faPriorities[p]).join(" و ")} تنظیم شد.`);
+   451→    }
+   452→    if (!ctx.category) ctx.category = "sneakers";
+   453→
+   454→    // scenario 9: user changes preference while comparing → re-run comparison
+   455→    if (
+   456→      ctx.stage === "comparing" &&
+   457→      ctx.compareIds.length >= 2 &&
+   458→      (nlu.priorities?.length || 0) > 0
+   459→    ) {
+   460→      const products = ctx.compareIds
+   461→        .map((id) => getProduct(id))
+   462→        .filter((p): p is Product => Boolean(p));
+   463→      if (products.length >= 2) {
+   464→        const out = comparisonTurn(ctx, products);
+   465→        return {
+   466→          context: out.context,
+   467→          turn: { text: `اولویت جدید اعمال شد. ${out.turn.text}`, blocks: out.turn.blocks },
+   468→        };
+   469→      }
+   470→    }
+   471→
+   472→    const isInitial = ctx.stage === "greeting" || ctx.recommendedIds.length === 0;
+   473→    const out = recommendationBlocks(CATALOG, ctx, {
+   474→      question: isInitial && !ctx.useCase ? undefined : undefined,
+   475→      changed,
+   476→    });
+   477→
+   478→    // if user mentioned in-person/tehran but we're at the start, hint at stores
+   479→    if (isInitial && (t.includes("حضوری") || t.includes("تهران"))) {
+   480→      out.blocks.splice(2, 0, {
+   481→        type: "text",
+   482→        text: "چون گفتی حضوری در تهران می‌خری، بعد از انتخاب مدل، فروشگاه‌های نزدیکت رو با موجودی و قیمت دقیق نشونت می‌دم.",
+   483→      });
+   484→    }
+   485→    return { context: out.context, turn: { blocks: out.blocks } };
+   486→  }
+   487→
+   488→  /* ---------- unknown fallback ---------- */
+   489→  return {
+   490→    context: ctx,
+   491→    turn: {
+   492→      text:
+   493→        ctx.stage === "greeting"
+   494→          ? "دقت نکردم چی می‌خوای. مثلا بنویس: «کتانی راحتی زیر ۴ میلیون» یا «ارزون‌ترین کتانی ورزشی»."
+   495→          : "این رو متوجه نشدم. می‌تونی بگی «مقایسه کن»، «کجا بخرمش؟» یا اولویتت رو عوض کنی (مثلا «قیمت مهم‌تره»).",
+   496→      blocks: [
+   497→        {
+   498→          type: "quick_replies",
+   499→          replies: ctx.recommendedIds.length
+   500→            ? [
+   501→                { label: "مقایسه کن", message: "مقایسه‌شون کن" },
+   502→                { label: "کجا حضوری بخرم؟", message: "کجا حضوری بخرمش؟" },
+   503→                { label: "فقط اقساطی‌ها", message: "فقط فروشگاه‌های اقساطی رو نشون بده" },
+   504→              ]
+   505→            : [
+   506→                { label: "کتانی راحتی زیر ۴ میلیون", message: "کتانی راحتی زیر ۴ میلیون تومان می‌خوام" },
+   507→                { label: "کتانی ورزشی", message: "کتانی ورزشی می‌خوام" },
+   508→              ],
+   509→        },
+   510→      ],
+   511→    },
+   512→  };
+   513→}
+   514→
+   515→/* ------------------------------------------------------------------ */
+   516→/* Stores turn builder                                                 */
+   517→/* ------------------------------------------------------------------ */
+   518→
+   519→function storesTurn(
+   520→  ctx: ConversationContext,
+   521→  intro: string
+   522→): { turn: ChatTurn; context: ConversationContext } {
+   523→  const product = getProduct(ctx.selectedProductId!);
+   524→  if (!product || !ctx.location) {
+   525→    return {
+   526→      context: ctx,
+   527→      turn: { text: "اول مدل و منطقه رو مشخص کن.", blocks: [] },
+   528→    };
+   529→  }
+   530→  const all = findStores(product.id, product.priceFrom, ctx.location);
+   531→  const sorted = sortStores(all, ctx.storeFilters.sort);
+   532→  const cheapest = [...all].sort((a, b) => a.price - b.price)[0];
+   533→  const confirmedCount = all.filter((s) => s.stock.status === "confirmed").length;
+   534→  const installmentCount = all.filter((s) => s.installment.verified).length;
+   535→
+   536→  ctx.stage = "stores";
+   537→  const summary =
+   538→    `${intro} ` +
+   539→    (cheapest
+   540→      ? `ارزون‌ترین: ${cheapest.name} (${formatToman(cheapest.price)}) در فاصله ${formatDistance(cheapest.distanceKm)}. `
+   541→      : "") +
+   542→    `${toFaDigits(confirmedCount)} فروشگاه موجودی تاییدشده دارن` +
+   543→    (installmentCount ? ` و ${toFaDigits(installmentCount)} تاشون اقساطی تاییدشده دارن.` : ".");
+   544→
+   545→  return {
+   546→    context: ctx,
+   547→    turn: {
+   548→      text: summary,
+   549→      blocks: [
+   550→        {
+   551→          type: "store_panel",
+   552→          stores: sorted,
+   553→          productId: product.id,
+   554→          productName: product.name,
+   555→          location: ctx.location,
+   556→          filters: ctx.storeFilters,
+   557→        },
+   558→        {
+   559→          type: "quick_replies",
+   560→          replies: [
+   561→            { label: "فقط اقساطی‌های تاییدشده", message: "فقط فروشگاه‌های اقساطی رو نشون بده" },
+   562→            { label: "ارزون‌ترین‌ها", message: "ارزون‌ترین فروشگاه‌ها" },
+   563→            { label: "نزدیک‌ترین‌ها", message: "نزدیک‌ترین فروشگاه‌ها رو نشون بده" },
+   564→          ],
+   565→        },
+   566→      ],
+   567→    },
+   568→  };
+   569→}
+   570→
+   571→/* ------------------------------------------------------------------ */
+   572→/* Action handler                                                      */
+   573→/* ------------------------------------------------------------------ */
+   574→
+   575→export function handleAction(
+   576→  action: { type: string; payload: Record<string, unknown> },
+   577→  ctxIn: ConversationContext
+   578→): { turn: ChatTurn; context: ConversationContext } {
+   579→  let ctx: ConversationContext = { ...ctxIn };
+   580→
+   581→  if (action.type === "contact_store") {
+   582→    const storeId = String(action.payload.storeId ?? "");
+   583→    const productId = String(action.payload.productId ?? ctx.selectedProductId ?? "");
+   584→    const product = getProduct(productId);
+   585→    if (!product) {
+   586→      return { context: ctx, turn: { text: "محصول یافت نشد.", blocks: [] } };
+   587→    }
+   588→    const sim = simulateContact(storeId, productId);
+   589→    const store = STORE_LIST.find((s) => s.id === storeId)?.name ?? "فروشگاه";
+   590→    if (!sim) {
+   591→      return { context: ctx, turn: { text: "اطلاعات فروشگاه کامل نیست.", blocks: [] } };
+   592→    }
+   593→    const at = Date.now();
+   594→    ctx.contacted = { ...ctx.contacted, [storeId]: { kind: sim.kind, at, method: "تماس نمایشی", note: sim.note, newPrice: sim.newPrice } };
+   595→    ctx.stage = "contacting";
+   596→
+   597→    const blocks: Block[] = [
+   598→      {
+   599→        type: "contact_status",
+   600→        storeName: store,
+   601→        productId,
+   602→        outcome: { kind: sim.kind, at, method: "تماس نمایشی (شبیه‌سازی)", note: sim.note, newPrice: sim.newPrice },
+   603→      },
+   604→    ];
+   605→
+   606→    if (sim.kind === "no_answer" || sim.kind === "closed" || sim.kind === "price_changed") {
+   607→      const alts = ctx.location
+   608→        ? alternativeStores(storeId, productId, product.priceFrom, ctx.location, 3)
+   609→        : [];
+   610→      if (alts.length) {
+   611→        blocks.push({
+   612→          type: "alternative_stores",
+   613→          stores: alts,
+   614→          productId,
+   615→          reason:
+   616→            sim.kind === "no_answer"
+   617→              ? "این فروشگاه پاسخ نداد؛ این‌ها مطمئن‌ترین گزینه‌ها هستن (باز/بسته بودن رو روی کارت ببین):"
+   618→              : sim.kind === "closed"
+   619→                ? "فروشگاه بسته بود؛ این گزینه‌ها رو هم می‌تونی بررسی کنی:"
+   620→                : "قیمت این فروشگاه تغییر کرد؛ این گزینه‌ها ارزون‌تر یا مطمئن‌ترن:",
+   621→        });
+   622→      }
+   623→      blocks.push({
+   624→        type: "quick_replies",
+   625→        replies: [
+   626→          { label: "لیست فروشگاه‌ها", message: "لیست فروشگاه‌ها رو نشون بده" },
+   627→          { label: "فقط موجودی تاییدشده", payload: { confirmedOnly: true }, message: "فقط فروشگاه‌های موجودی تاییدشده" },
+   628→        ],
+   629→      });
+   630→    } else {
+   631→      blocks.push({
+   632→        type: "quick_replies",
+   633→        replies: [
+   634→          { label: "لیست فروشگاه‌ها", message: "لیست فروشگاه‌ها رو نشون بده" },
+   635→          { label: "فروشگاه‌های دیگه", message: "نزدیک‌ترین فروشگاه‌ها رو نشون بده" },
+   636→        ],
+   637→      });
+   638→    }
+   639→    return { context: ctx, turn: { blocks } };
+   640→  }
+   641→
+   642→  if (action.type === "update_context") {
+   643→    // silent context sync (filters, location via GPS, criteria…)
+   644→    const patch = action.payload as Partial<ConversationContext>;
+   645→    ctx = { ...ctx, ...patch };
+   646→    return { context: ctx, turn: { blocks: [] } };
+   647→  }
+   648→
+   649→  return { context: ctx, turn: { blocks: [] } };
+   650→}
+   651→
+   652→/* ------------------------------------------------------------------ */
+   653→/* Product matching from free text                                     */
+   654→/* ------------------------------------------------------------------ */
+   655→
+   656→/**
+   657→ * Resolve the active product: explicit mention > selected > last compared >
+   658→ * top recommendation. Mutates ctx.selectedProductId and returns the product.
+   659→ */
+   660→function resolveSelectedProduct(t: string, ctx: ConversationContext): Product | undefined {
+   661→  const picked = pickProductFromText(t, ctx);
+   662→  if (picked) {
+   663→    ctx.selectedProductId = picked.id;
+   664→    return picked;
+   665→  }
+   666→  const existing = ctx.selectedProductId ? getProduct(ctx.selectedProductId) : undefined;
+   667→  if (existing) return existing;
+   668→  const fallbackId =
+   669→    ctx.compareIds.length
+   670→      ? ctx.compareIds[ctx.compareIds.length - 1]
+   671→      : ctx.recommendedIds[0];
+   672→  const fallback = fallbackId ? getProduct(fallbackId) : undefined;
+   673→  if (fallback) ctx.selectedProductId = fallback.id;
+   674→  return fallback;
+   675→}
+   676→
+   677→const BRAND_HINTS: Array<[string, string[]]> = [
+   678→  ["nike-v2k", ["نایکی", "نايک", "v2k", "نیک"]],
+   679→  ["nb530", ["نیوبالنس", "نیو بالانس", "530", "۵۳۰"]],
+   680→  ["nb9060", ["9060", "۹۰۶۰"]],
+   681→  ["vans-classic-canvas", ["ونس", "vans"]],
+   682→  ["skechers-max-cushioning", ["اسکچرز", "اسکچر", "skechers"]],
+   683→  ["duramo-sl", ["ادیداس", "آدیداس", "adidas", "دیورامو", "دیورام"]],
+   684→  ["asics-gel-contend", ["اسیكس", "اسیکس", "asics", "کنتند", "گل کنتند"]],
+   685→  ["asics-kayano-14", ["کایانو", "kayano"]],
+   686→  ["puma-smash-v2", ["پوما", "puma", "اسمش"]],
+   687→  ["reebok-quick-motion", ["ریباک", "reebok"]],
+   688→];
+   689→
+   690→function pickProductFromText(t: string, ctx: ConversationContext): Product | undefined {
+   691→  for (const [id, hints] of BRAND_HINTS) {
+   692→    if (hints.some((h) => t.includes(h))) return getProduct(id);
+   693→  }
+   694→  return ctx.selectedProductId ? getProduct(ctx.selectedProductId) : undefined;
+   695→}
+   696→

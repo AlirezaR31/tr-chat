@@ -9,7 +9,7 @@
 import { useMemo, useState } from "react";
 import { Store as StoreIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Block, StoreCardData, StoreFilters as StoreFiltersT } from "@/lib/types";
+import type { Block, ContactOutcome, StoreCardData, StoreFilters as StoreFiltersT } from "@/lib/types";
 import { sortStores } from "@/lib/agent/tools";
 import { Pill } from "@/components/generative/ui";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,7 @@ export function StorePanel({
   contactingId,
 }: {
   block: Extract<Block, { type: "store_panel" }>;
-  contacted: Record<string, { kind: string; at: number; method: string; note: string; newPrice?: number }>;
+  contacted: Record<string, ContactOutcome>;
   onFiltersChange?: (f: StoreFiltersT) => void;
   onContact: (store: StoreCardData) => void;
   contactingId: string | null;

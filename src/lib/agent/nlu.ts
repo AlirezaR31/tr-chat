@@ -25,6 +25,16 @@ export type Intent =
   | "contact_store"
   | "set_location"
   | "thanks"
+  /* --- Smart Shopping Basket --- */
+  | "add_to_basket"
+  | "remove_from_basket"
+  | "show_basket"
+  | "clear_basket"
+  | "plan_route"
+  | "set_optimize_mode"
+  | "set_transport"
+  | "cheaper_alternative"
+  | "set_recs_muted"
   | "unknown";
 
 export interface NluResult {
@@ -37,6 +47,11 @@ export interface NluResult {
   productRef?: string; // product id hint
   installmentOnly?: boolean;
   wantsCheapest?: boolean;
+  optimizeMode?: "fastest" | "cheapest" | "fewest_stops" | "balanced";
+  transport?: "car" | "walk" | "transit";
+  variant?: string; // e.g. "سایز ۴۲"
+  targetPrice?: number; // «قیمت هدف ۲ میلیون»
+  muteRecs?: boolean; // set_recs_muted intent
 }
 
 /* ------------------------------ helpers ------------------------------ */
@@ -102,7 +117,7 @@ function extractPriorities(t: string): Priority[] {
 
 export function parseMessage(raw: string, ctx: ConversationContext): NluResult {
   const t = normalize(raw);
-  const res: NluResult = {};
+  const res: NluResult = { intent: "unknown" };
 
   // --- greetings / chit-chat
   if (/^(سلام|درود|هی|های|hi|hello)\b/.test(t) && t.length < 30) {
@@ -154,6 +169,105 @@ export function parseMessage(raw: string, ctx: ConversationContext): NluResult {
   }
   if (has(t, ["بدون قسط", "نقدی میخرم", "نقدی می‌خرم"])) res.installmentOnly = false;
 
+  // --- basket entities (optimize mode, transport, variant, target price)
+  const hasProductContext = Boolean(
+    ctx.selectedProductId ||
+      ctx.recommendedIds.length > 0 ||
+      ctx.stage === "recommendations" ||
+      ctx.stage === "comparing" ||
+      ctx.stage === "stores" ||
+      ctx.stage === "basket" ||
+      ctx.stage === "routing"
+  );
+
+  if (has(t, ["سریع ترین", "سریع‌ترین", "کمترین زمان", "کم زمان"])) res.optimizeMode = "fastest";
+  else if (has(t, ["کم هزینه", "کم‌هزینه", "کمترین هزینه", "ارزون ترین کل", "کمترین قیمت کل"]))
+    res.optimizeMode = "cheapest";
+  else if (
+    has(t, ["کمترین فروشگاه", "کمترین توقف", "از فروشگاه کمتر", "یک فروشگاه", "حداقل فروشگاه", "کمترین ایستگاه"])
+  )
+    res.optimizeMode = "fewest_stops";
+  else if (has(t, ["متعادل", "بهترین حالت ممکن"])) res.optimizeMode = "balanced";
+
+  if (has(t, ["با ماشین", "ماشین", "خودرو", "اسنپ", "تاکسی"])) res.transport = "car";
+  else if (has(t, ["پیاده"])) res.transport = "walk";
+  else if (has(t, ["مترو", "اتوبوس", "حمل نقل عمومی", "حمل‌ونقل عمومی", "عمومی"])) res.transport = "transit";
+
+  const variantMatch = t.match(/سایز\s*([\d]{2})/);
+  if (variantMatch) res.variant = `سایز ${variantMatch[1]}`;
+  const targetMatch = t.match(/(?:قیمت هدف|حداکثر قیمت)\s*([\d.]+)\s*(میلیون|ملیون|هزار)?/);
+  if (targetMatch) {
+    const num = parseFloat(targetMatch[1]);
+    const unit = targetMatch[2] ?? "میلیون";
+    res.targetPrice = unit.startsWith("میلیون") || unit.startsWith("ملیون") ? num * 1_000_000 : num * 1_000;
+  }
+
+  // --- basket intents (checked BEFORE generic intents: basket anchors win)
+  const hasBasketWord = has(t, ["سبد"]);
+  // accessory add without the word سبد: «جوراب رو اضافه کن»، «کفی رو بنداز»
+  const ACC_HINTS = [
+    "جوراب", "کفی طبی", "کفی ورزشی", "کفی ارتوپدیک", "اینرسول",
+    "بند کتانی", "بند کفش", "کیت", "تمیز کننده", "تمیزکننده", "مراقبت",
+    "کیف ورزشی", "کوله", "کیف دوشی",
+  ];
+  if (
+    has(t, ["اضافه", "بنداز", "بزار", "بذار", "ثبت کن", "بردار تو", "بریز تو"]) &&
+    has(t, ACC_HINTS)
+  ) {
+    res.intent = "add_to_basket";
+    return res;
+  }
+  // recommendation frequency control (works with or without basket word)
+  if (has(t, ["پیشنهاد نده", "پیشنهاد ند", "دیگه پیشنهاد", "بیخیال پیشنهاد", "بی خیال پیشنهاد"])) {
+    res.intent = "set_recs_muted";
+    res.muteRecs = true;
+    return res;
+  }
+  if (has(t, ["پیشنهاد بده", "پیشنهادها رو فعال", "پیشنهاد ها رو فعال", "دوباره پیشنهاد"])) {
+    res.intent = "set_recs_muted";
+    res.muteRecs = false;
+    return res;
+  }
+  if (hasBasketWord && has(t, ["حذف", "بردار", "پاک کن از", "کم کن"])) {
+    if (has(t, ["همه", "خالی", "پاک کردن کل", "کل سبد"])) res.intent = "clear_basket";
+    else res.intent = "remove_from_basket";
+    return res;
+  }
+  if (hasBasketWord && has(t, ["خالی", "پاک کردن", "ریست"])) {
+    res.intent = "clear_basket";
+    return res;
+  }
+  if (hasBasketWord && has(t, ["اضافه", "بنداز", "انداختن", "بزار", "بذار", "add", "ثبت کن"])) {
+    res.intent = "add_to_basket";
+    return res;
+  }
+  if (hasBasketWord && has(t, ["نشون بده", "نمایش", "چی داره", "چی دارم", "چیزی", "کدوم ها", "لیست", "وضعیت"])) {
+    res.intent = "show_basket";
+    return res;
+  }
+  // implicit add: «همینو بردار» / «اینم به لیست خرید» without سبد word
+  if (has(t, ["بردار", "اضافه کن"]) && has(t, ["همین", "همون", "اینم", "این رو", "اینو"]) && hasProductContext) {
+    res.intent = "add_to_basket";
+    return res;
+  }
+  // route planning: مسیر/برنامه/بچین/بهینه/توقف
+  const planWords = ["مسیر", "برنامه خرید", "بچین", "بهینه", "روت", "ایستگاه بندی", "از چند فروشگاه", "توقف"];
+  const hasBasketCtx = ctx.basket.length > 0;
+  if (has(t, planWords) && (hasBasketCtx || hasBasketWord)) {
+    res.intent = "plan_route";
+    return res;
+  }
+  // mode/transport change on an existing basket (recalculate)
+  if (hasBasketCtx && (res.optimizeMode || res.transport) && t.length < 60 && !has(t, ["کتانی", "کفش"])) {
+    res.intent = res.optimizeMode ? "set_optimize_mode" : "set_transport";
+    return res;
+  }
+  // cheaper alternative for a basket/selected product
+  if (has(t, ["جایگزین"]) && has(t, ["ارزون", "ارزان", "کم هزینه"]) && (hasBasketCtx || hasProductContext)) {
+    res.intent = "cheaper_alternative";
+    return res;
+  }
+
   // --- intent by priority: compare > cheapest > stores > select > search
   const storeAskWords = ["کجا", "فروشگاه", "حضوری", "بخرم", "نزدیک", "آدرس", "شعبه", "انبار"];
   const compareWords = ["مقایسه", "فرق", "کدوم بهتر", "بهتره", "تفاوت", "چی بهتر"];
@@ -161,13 +275,6 @@ export function parseMessage(raw: string, ctx: ConversationContext): NluResult {
   const productWords = ["بخر", "کتانی", "کفش", "اسنیکر", "پیشنهاد", "گزینه", "میخوام", "می خوام"];
   const selectionWords = ["همین", "همون", "همونو", "همینو", "بگیر", "انتخاب", "پسندیدم", "میخوام همین"];
 
-  const hasProductContext = Boolean(
-    ctx.selectedProductId ||
-      ctx.recommendedIds.length > 0 ||
-      ctx.stage === "recommendations" ||
-      ctx.stage === "comparing" ||
-      ctx.stage === "stores"
-  );
   const mentionsProduct = has(t, productWords);
 
   if (has(t, compareWords) && hasProductContext) res.intent = "compare";

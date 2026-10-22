@@ -3,6 +3,7 @@ import { handleAction } from "@/lib/agent/orchestrator";
 import { validateBlocks } from "@/lib/block-schema";
 import { simulateContact } from "@/lib/agent/tools";
 import { DEFAULT_CONTEXT, type ConversationContext } from "@/lib/types";
+import { buildBasketView } from "@/lib/basket/basket-view";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
  *  - contact_store: runs the (simulated, honestly labelled) store contact
  *    with a realistic wait, then returns the honest outcome.
  *  - update_context: silent context sync (filters, GPS location…).
+ *  - basket actions (add/remove/update/clear/route/dismiss/mute): server is
+ *    the single source of truth; responses always carry a fresh basketView.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -30,9 +33,17 @@ export async function POST(req: NextRequest) {
     }
 
     const { turn, context: nextCtx } = handleAction(action, ctx);
+    const basketView = buildBasketView(nextCtx.basket ?? [], {
+      optimizeMode: nextCtx.optimizeMode,
+      transport: nextCtx.transport,
+      hasRoute: Boolean(nextCtx.lastPlannedAt),
+      lastPlannedAt: nextCtx.lastPlannedAt,
+      contacted: nextCtx.contacted,
+    });
     return NextResponse.json({
       turn: { ...turn, blocks: validateBlocks(turn.blocks) },
       context: nextCtx,
+      basketView,
     });
   } catch (err) {
     console.error("[/api/chat/action] error:", err);

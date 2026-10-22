@@ -10,9 +10,9 @@ import type {
   ComparisonEntry,
   ConversationContext,
   Criteria,
+  Priority,
   Product,
   ProductCardData,
-  ScoreContext,
   StoreCardData,
   UserLocation,
 } from "@/lib/types";
@@ -20,6 +20,7 @@ import {
   criterionScore,
   makeScoreContext,
   priorityScore,
+  type ScoreContext,
 } from "@/lib/scoring";
 import { haversineKm } from "@/lib/geo";
 import { tehranNow } from "@/lib/format";

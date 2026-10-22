@@ -181,9 +181,7 @@ export const STORES: Store[] = [
   },
 ];
 
-/* ------------------------------------------------------------------ */
-/* Deterministic stock & price derivation per (store × product)        */
-/* ------------------------------------------------------------------ */
+/** Deterministic stock & price derivation per (store × product)        */
 
 function hashStr(s: string): number {
   let h = 2166136261;
@@ -193,6 +191,24 @@ function hashStr(s: string): number {
   }
   return h >>> 0;
 }
+
+/**
+ * Display-only geographic grouping of stores that are genuinely close
+ * (real Tehran areas). Used as explanatory labels in itineraries — the
+ * optimizer itself works on real distances, never on these buckets.
+ */
+export const STORE_CLUSTER: Record<string, string> = {
+  "sportland-tirajhe": "سعادت‌آباد و شهرک غرب",
+  "sport-house-shahrak": "سعادت‌آباد و شهرک غرب",
+  "sneaker-hub-tajrish": "تجریش و فرمانیه",
+  "sport-market-palladium": "تجریش و فرمانیه",
+  "sneaker-center-pasdaran": "پاسداران و شرق شمالی",
+  "kafsh-donyaye-varzeshi-vanak": "ونک و آرژانتین",
+  "varzeshi-aria-argentine": "ونک و آرژانتین",
+  "katani-land-narmak": "نارمک شرق تهران",
+  "varzeshi-bazaar-markazi": "بازار و صادقیه",
+  "kafsh-rayka-sadeghieh": "بازار و صادقیه",
+};
 
 /** Cycle of stock states so every status kind is realistically represented. */
 const STOCK_CYCLE: Array<{
@@ -219,6 +235,9 @@ export const STOCK_METHOD: Record<string, string> = {
 export function getStoreStock(storeId: string, productId: string, basePrice: number) {
   const store = STORES.find((s) => s.id === storeId);
   if (!store) return undefined;
+  // accessory availability whitelist — only whitelisted stores carry the item
+  const product = getProduct(productId);
+  if (product?.availableAt && !product.availableAt.includes(storeId)) return undefined;
   return deriveStock(store, productId, basePrice);
 }
 

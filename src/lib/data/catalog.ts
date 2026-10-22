@@ -265,5 +265,176 @@ export const CATALOG: Product[] = [
 ];
 
 export function getProduct(id: string): Product | undefined {
-  return CATALOG.find((p) => p.id === id);
+  return ALL_PRODUCTS.find((p) => p.id === id);
 }
+
+/* ------------------------------------------------------------------ */
+/* Accessories — complementary items for the Smart Shopping Basket      */
+/*                                                                      */
+/* DEMO DATA (clearly marked): real product categories with realistic  */
+/* Tehran price ranges (≈آبان ۱۴۰۴). `availableAt` is an explicit       */
+/* demo whitelist: ONLY these stores carry the item. This makes        */
+/* "stocked at the same mall / nearby" claims honest by construction — */
+/* recommendations can never imply availability that is not in the     */
+/* dataset.                                                            */
+/* ------------------------------------------------------------------ */
+
+export const ACCESSORIES: Product[] = [
+  {
+    id: "acc-sport-socks",
+    name: "جوراب ورزشی نخی (بسته ۳ عددی)",
+    brand: "Torob Basics",
+    model: "Crew 3-Pack",
+    image: "/products/socks.jpg",
+    gender: "unisex",
+    useCases: ["daily", "sport"],
+    priceFrom: 190000,
+    specs: {
+      weightGrams: 90,
+      cushioning: 2,
+      durability: 3,
+      styleRating: 3,
+      upper: "پنبه نخی ساده",
+      drop: "—",
+      sole: "—",
+    },
+    highlights: [
+      "جوراب ورزشی نرم با پنجه تقویت‌شده — تکمیل‌کننده هر خرید کتانی",
+      "بسته ۳ عددی با قیمت به‌صرفه",
+    ],
+    sizes: "فری‌سایز (۳۹ تا ۴۵)",
+    sourceCount: 12,
+    kind: "accessory",
+    categoryFa: "لوازم جانبی کتانی",
+    availableAt: [
+      "sportland-tirajhe",
+      "sport-market-palladium",
+      "sneaker-hub-tajrish",
+      "sport-house-shahrak",
+    ],
+  },
+  {
+    id: "acc-insole",
+    name: "کفی طبی ورزشی ارتوز دوبل",
+    brand: "OrtoLife",
+    model: "Double Support",
+    image: "/products/insole.jpg",
+    gender: "unisex",
+    useCases: ["daily", "sport"],
+    priceFrom: 290000,
+    specs: {
+      weightGrams: 120,
+      cushioning: 4,
+      durability: 4,
+      styleRating: 2,
+      upper: "پارچه ضدباکتری",
+      drop: "—",
+      sole: "فوم مموری + قوس پنجه",
+    },
+    highlights: [
+      "کفی ارتوپدیک — راحتی کتانی‌های کف صاف را واقعا بالا می‌برد",
+      "قابل برش بر اساس سایز کفش",
+    ],
+    sizes: "قابل برش ۳۹ تا ۴۶",
+    sourceCount: 9,
+    kind: "accessory",
+    categoryFa: "لوازم جانبی کتانی",
+    availableAt: [
+      "sportland-tirajhe",
+      "katani-land-narmak",
+      "varzeshi-bazaar-markazi",
+      "kafsh-rayka-sadeghieh",
+    ],
+  },
+  {
+    id: "acc-laces",
+    name: "بند کتانی گرد ضدپارگی",
+    brand: "LacePro",
+    model: "Round Grip",
+    image: "/products/laces.jpg",
+    gender: "unisex",
+    useCases: ["daily"],
+    priceFrom: 95000,
+    specs: {
+      weightGrams: 30,
+      cushioning: 1,
+      durability: 4,
+      styleRating: 3,
+      upper: "نایلون بافته",
+      drop: "—",
+      sole: "—",
+    },
+    highlights: [
+      "بند مقاوم با پوشش ضدپارگی — مناسب کتانی روزمره",
+      "در دو رنگ سفید و مشکی",
+    ],
+    sizes: "۱۲۰ سانتی‌متر",
+    sourceCount: 7,
+    kind: "accessory",
+    categoryFa: "لوازم جانبی کتانی",
+    availableAt: [
+      "varzeshi-bazaar-markazi",
+      "kafsh-rayka-sadeghieh",
+      "kafsh-donyaye-varzeshi-vanak",
+    ],
+  },
+  {
+    id: "acc-care-kit",
+    name: "کیت مراقبت و تمیزکننده کتانی",
+    brand: "FreshStep",
+    model: "Care Kit 4-Piece",
+    image: "/products/care.jpg",
+    gender: "unisex",
+    useCases: ["daily"],
+    priceFrom: 420000,
+    specs: {
+      weightGrams: 400,
+      cushioning: 1,
+      durability: 3,
+      styleRating: 2,
+      upper: "برس دوطرفه + محلول تمیزکننده",
+      drop: "—",
+      sole: "—",
+    },
+    highlights: [
+      "نگه‌داشتن ظاهر کتانی نو — برس، محلول و دستمال میکروفایبر",
+      "مناسب رویه‌های مش و چرمی",
+    ],
+    sizes: "ست ۴ تکه",
+    sourceCount: 6,
+    kind: "accessory",
+    categoryFa: "لوازم جانبی کتانی",
+    availableAt: ["sport-market-palladium", "kafsh-donyaye-varzeshi-vanak"],
+  },
+  {
+    id: "acc-gym-bag",
+    name: "کیف ورزشی دوشی ضدآب",
+    brand: "UrbanFit",
+    model: "Duffel 28L",
+    image: "/products/bag.jpg",
+    gender: "unisex",
+    useCases: ["sport", "daily"],
+    priceFrom: 980000,
+    specs: {
+      weightGrams: 700,
+      cushioning: 1,
+      durability: 4,
+      styleRating: 4,
+      upper: "پلی‌استر ضدآب",
+      drop: "—",
+      sole: "—",
+    },
+    highlights: [
+      "حجم ۲۸ لیتر با محفظه جدا کتانی — مناسب باشگاه و سفر",
+      "بند دوشی قابل تنظیم با زیپ محکم",
+    ],
+    sizes: "۲۸ لیتر",
+    sourceCount: 8,
+    kind: "accessory",
+    categoryFa: "لوازم جانبی کتانی",
+    availableAt: ["sport-market-palladium", "sportland-tirajhe"],
+  },
+];
+
+/** Full searchable universe (sneakers + accessories) for basket & recs. */
+export const ALL_PRODUCTS: Product[] = [...CATALOG, ...ACCESSORIES];

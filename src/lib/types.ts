@@ -39,6 +39,8 @@ export interface ProductSpecs {
   sole: string;
 }
 
+export type ProductKind = "sneaker" | "accessory";
+
 export interface Product {
   id: string;
   name: string; // Persian display name
@@ -52,6 +54,16 @@ export interface Product {
   highlights: string[]; // short "why it matches" lines
   sizes: string;
   sourceCount: number; // demo: number of listing sources aggregated
+  /** sneaker (default) or accessory (complementary item) */
+  kind?: ProductKind;
+  /** Persian category label used in basket/recs ("لوازم جانبی کتانی") */
+  categoryFa?: string;
+  /**
+   * Accessories: explicit demo availability — ONLY these stores carry the item.
+   * Sneakers: undefined → availability derived from the store×product matrix.
+   * This keeps "is it stocked nearby?" claims honest by construction.
+   */
+  availableAt?: string[];
 }
 
 /** Product data as delivered inside cards (subset + store summary). */
@@ -70,6 +82,8 @@ export interface ProductCardData {
   storeCount: number;
   matchScore: number; // 0–100, methodology: see scoring.ts
   matchReason: string;
+  kind?: ProductKind;
+  categoryFa?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -183,6 +197,163 @@ export interface ContactOutcome {
 }
 
 /* ------------------------------------------------------------------ */
+/* Smart Shopping Basket                                               */
+/* ------------------------------------------------------------------ */
+
+export type BasketOptimizeMode = "fastest" | "cheapest" | "fewest_stops" | "balanced";
+export type TransportMode = "car" | "walk" | "transit";
+
+export interface BasketItem {
+  productId: string;
+  quantity: number; // ≥1
+  targetPrice?: number; // user's target price (toman), optional
+  addedAt: number; // epoch ms
+  /** Persian variant note, e.g. "سایز ۴۲" — display only */
+  variant?: string;
+}
+
+export type AssignmentConfidence = StockStatusKind | "unassigned";
+
+/** One basket row as rendered in the UI (prices resolved server-side). */
+export interface BasketItemView {
+  productId: string;
+  name: string;
+  brand: string;
+  model: string;
+  image: string;
+  kind: ProductKind;
+  categoryFa?: string;
+  quantity: number;
+  variant?: string;
+  targetPrice?: number;
+  /** best current unit price across candidate stores (base, before assignment) */
+  bestPrice: number;
+  /** assigned store (from the active plan) */
+  assignment?: {
+    storeId: string;
+    storeName: string;
+    area: string;
+    price: number; // unit price at that store
+    confidence: AssignmentConfidence;
+    openNow: boolean;
+  } | null;
+  /** number of stores carrying the item (0 = حضوری پیدا نشد) */
+  storeCount: number;
+  /** user-facing note (e.g. "فقط در ۱ فروشگاه", "موجودی تاییدنشده") */
+  note?: string;
+}
+
+export interface BasketView {
+  items: BasketItemView[];
+  estimatedTotal: number; // sum over assignment ?? bestPrice × qty
+  savingsVsMax: number; // how much cheaper than worst assignment (≥0)
+  optimizeMode: BasketOptimizeMode;
+  transport: TransportMode;
+  hasRoute: boolean; // a plan has been generated in this conversation
+  lastPlannedAt?: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Contextual recommendations                                          */
+/* ------------------------------------------------------------------ */
+
+export type RecommendationKind = "complementary" | "nearby" | "basket_optimization";
+
+export interface RecommendationItem {
+  kind: RecommendationKind;
+  product: ProductCardData;
+  /** required short "why" — semantic relevance or dataset-backed availability */
+  reason: string;
+  /**
+   * Dataset-backed availability at a specific store. null ⇒ semantic match
+   * only: the UI must NOT imply the item is stocked anywhere.
+   */
+  availability: {
+    storeId: string;
+    storeName: string;
+    area: string;
+    price: number;
+    stockStatus: StockStatusKind;
+    distanceKm: number | null; // null when no user location yet
+  } | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Route planning                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface RouteStopItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number; // unit price at this store
+  stockStatus: StockStatusKind;
+  stockLabel: string; // honest Persian label
+  verifiedAt: string | null;
+  installmentVerified: boolean;
+}
+
+export interface RouteStop {
+  order: number; // 1-based visit order
+  storeId: string;
+  storeName: string;
+  area: string;
+  address: string;
+  lat: number;
+  lng: number;
+  items: RouteStopItem[];
+  subtotal: number;
+  openNow: boolean;
+  hoursLabel: string;
+  /** estimated arrival time label (fa), when computable from now */
+  etaLabel: string | null;
+  closedAtArrival: boolean; // ETA outside opening hours — honest flag
+  /** leg from previous stop (first stop: from start location) */
+  legKm: number | null; // real haversine
+  legMin: number | null; // disclosed estimate (see route-engine.ts)
+  shopMin: number; // estimated time in-store
+  waitingMin: number; // contact/verify buffer when stock unconfirmed
+  clusterLabel: string; // e.g. "خوشه تریجی و شهرک غرب"
+}
+
+export interface PlanAlternative {
+  planId: string; // "A" | "B" | "C"
+  mode: BasketOptimizeMode;
+  label: string; // Persian label
+  totalProductCost: number;
+  totalTravelMin: number;
+  totalDistanceKm: number;
+  stopCount: number;
+  unconfirmedCount: number; // items whose stock is not confirmed
+  closedCount: number; // stops closed at ETA
+  score: number; // normalized transparent score 0–100 (see route-engine)
+  tradeoff: string; // natural-language trade-off vs the recommended plan
+}
+
+export interface RoutePlan {
+  planId: string;
+  mode: BasketOptimizeMode;
+  transport: TransportMode;
+  startLocation: UserLocation;
+  stops: RouteStop[];
+  unassigned: { productId: string; productName: string; reason: string }[];
+  totalProductCost: number;
+  totalDistanceKm: number;
+  totalTravelMin: number;
+  totalShopMin: number;
+  totalWaitMin: number;
+  score: number; // 0–100
+  /** the biggest trade-off, in Persian natural language */
+  tradeoff: string;
+  /** disclosed estimation methodology (honesty footnote) */
+  methodology: string;
+  alternatives: PlanAlternative[];
+  generatedAt: number;
+  /** bag degradations vs the previous plan, e.g. store became unavailable */
+  changes: string[];
+}
+
+/* ------------------------------------------------------------------ */
 /* Conversation context (persisted client-side, mirrored server-side)   */
 /* ------------------------------------------------------------------ */
 
@@ -193,7 +364,9 @@ export type Stage =
   | "comparing"
   | "stores"
   | "contacting"
-  | "installment";
+  | "installment"
+  | "basket"
+  | "routing";
 
 export interface StoreFilters {
   sort: "price" | "distance" | "stock";
@@ -217,6 +390,19 @@ export interface ConversationContext {
   storeFilters: StoreFilters;
   contacted: Record<string, ContactOutcome>;
   pendingIntent?: string;
+  /* --- Smart Shopping Basket --- */
+  basket: BasketItem[];
+  optimizeMode: BasketOptimizeMode;
+  transport: TransportMode;
+  /** product ids the user dismissed from recommendations */
+  dismissedRecs: string[];
+  /** user muted contextual recommendations entirely */
+  recsMuted: boolean;
+  /** stores the user removed from the route (persist across recalcs) */
+  excludedStoreIds: string[];
+  /** product id of the last add (drives "complementary" recs) */
+  lastAddedId?: string;
+  lastPlannedAt?: number;
 }
 
 export const DEFAULT_CONTEXT: ConversationContext = {
@@ -232,6 +418,12 @@ export const DEFAULT_CONTEXT: ConversationContext = {
     confirmedStockOnly: false,
   },
   contacted: {},
+  basket: [],
+  optimizeMode: "balanced",
+  transport: "car",
+  dismissedRecs: [],
+  recsMuted: false,
+  excludedStoreIds: [],
 };
 
 /* ------------------------------------------------------------------ */
@@ -275,7 +467,22 @@ export type Block =
     }
   | { type: "empty_state"; title: string; description: string; replies: QuickReply[] }
   | { type: "quick_replies"; replies: QuickReply[] }
-  | { type: "demo_notice"; label: string };
+  | { type: "demo_notice"; label: string }
+  /* --- Smart Shopping Basket blocks --- */
+  | {
+      type: "basket_summary";
+      basket: BasketView;
+      intro?: string;
+    }
+  | {
+      type: "basket_recommendations";
+      forProductId: string;
+      forProductName: string;
+      recs: RecommendationItem[];
+      hint: string; // frequency-control / dismiss explainer
+    }
+  | { type: "route_plan"; plan: RoutePlan }
+  | { type: "plan_comparison"; alternatives: PlanAlternative[]; mode: BasketOptimizeMode };
 
 export interface ChatTurn {
   text?: string;
@@ -290,7 +497,16 @@ export type ActionRequestType =
   | "contact_store"
   | "update_context"
   | "select_product"
-  | "toggle_compare";
+  | "toggle_compare"
+  | "add_to_basket"
+  | "remove_from_basket"
+  | "update_basket_item"
+  | "clear_basket"
+  | "recalculate_route"
+  | "remove_stop"
+  | "move_stop"
+  | "dismiss_recommendation"
+  | "set_recs_muted";
 
 export interface ActionRequest {
   type: ActionRequestType;
@@ -307,6 +523,8 @@ export interface ChatRequestBody {
 export interface ChatResponseBody {
   turn: ChatTurn;
   context: ConversationContext;
+  /** server-resolved basket snapshot (bar + editor always render this) */
+  basketView?: BasketView;
 }
 
 /* ------------------------------------------------------------------ */

@@ -5,7 +5,7 @@
  * light product shot, 2-line name, "از X تومان" + chevron.
  * Actions: compare toggle, details, store availability.
  */
-import { ChevronLeft, GitCompareArrows, MapPin, X } from "lucide-react";
+import { ChevronLeft, GitCompareArrows, MapPin, ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProductCardData } from "@/lib/types";
 import { formatToman, toFaDigits } from "@/lib/format";
@@ -20,15 +20,19 @@ import {
 export function ProductCard({
   product,
   inCompare,
+  inBasket,
   onToggleCompare,
   onDetails,
   onStores,
+  onAddToBasket,
 }: {
   product: ProductCardData;
   inCompare: boolean;
+  inBasket: boolean;
   onToggleCompare: (id: string) => void;
   onDetails: (p: ProductCardData) => void;
   onStores: (p: ProductCardData) => void;
+  onAddToBasket: (p: ProductCardData) => void;
 }) {
   return (
     <article
@@ -111,6 +115,20 @@ export function ProductCard({
           <MapPin className="size-3" aria-hidden />
           {toFaDigits(product.storeCount)} فروشگاه در تهران
         </Button>
+        <Button
+          variant={inBasket ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => onAddToBasket(product)}
+          aria-label={inBasket ? `افزودن یکی دیگر از ${product.name} به سبد` : `افزودن ${product.name} به سبد`}
+          className={
+            inBasket
+              ? "h-6 gap-1 rounded-lg bg-primary/15 px-1.5 text-xs text-[#f2b8ba] hover:bg-primary/25 hover:text-[#f2b8ba]"
+              : "h-6 gap-1 rounded-lg px-1.5 text-xs text-muted-foreground hover:bg-primary/10 hover:text-[#f2b8ba]"
+          }
+        >
+          <ShoppingBag className="size-3" aria-hidden />
+          {inBasket ? "در سبد +" : "به سبد"}
+        </Button>
       </div>
     </article>
   );
@@ -119,16 +137,20 @@ export function ProductCard({
 export function ProductCarousel({
   products,
   compareIds,
+  basketIds,
   onToggleCompare,
   onDetails,
   onStores,
+  onAddToBasket,
   title,
 }: {
   products: ProductCardData[];
   compareIds: string[];
+  basketIds: string[];
   onToggleCompare: (id: string) => void;
   onDetails: (p: ProductCardData) => void;
   onStores: (p: ProductCardData) => void;
+  onAddToBasket: (p: ProductCardData) => void;
   title?: string;
 }) {
   return (
@@ -143,9 +165,11 @@ export function ProductCarousel({
               <ProductCard
                 product={p}
                 inCompare={compareIds.includes(p.id)}
+                inBasket={basketIds.includes(p.id)}
                 onToggleCompare={onToggleCompare}
                 onDetails={onDetails}
                 onStores={onStores}
+                onAddToBasket={onAddToBasket}
               />
             </div>
           ))}

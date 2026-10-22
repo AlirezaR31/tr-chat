@@ -2,15 +2,18 @@
 
 /**
  * ChatShell — the mobile-first conversational shell.
- * Owns: message sending, actions (contact/GPS/filters), compare bar,
- * auto-scroll, product details drawer. All state persists in the
- * zustand store (localStorage) for reload continuity.
+ * Owns: message sending, actions (contact/GPS/filters/basket/route),
+ * compare bar, persistent basket bar + editor, auto-scroll, product details
+ * drawer. All state persists in the zustand store (localStorage) for reload
+ * continuity. Basket truth lives server-side; `basketView` snapshots are
+ * stored on every response.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Scale, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useChatStore } from "@/store/chat-store";
 import type {
+  ActionRequestType,
   ChatResponseBody,
   Criteria,
   Priority,
@@ -23,6 +26,7 @@ import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatComposer } from "@/components/chat/composer";
 import { ConversationMessage } from "@/components/chat/conversation-message";
 import { Hero } from "@/components/chat/hero";
+import { BasketBar } from "@/components/chat/basket-bar";
 import { ProductDetails } from "@/components/generative/blocks/product-details";
 import { PRIORITY_FA } from "@/lib/scoring";
 import { Button } from "@/components/ui/button";
@@ -38,6 +42,9 @@ export function ChatShell() {
   const messages = useChatStore((s) => s.messages);
   const sessionId = useChatStore((s) => s.sessionId);
   const compareIds = useChatStore((s) => s.context.compareIds);
+  const basket = useChatStore((s) => s.context.basket);
+  const basketIds = useMemo(() => basket.map((b) => b.productId), [basket]);
+  const basketView = useChatStore((s) => s.basketView);
   const contacted = useChatStore((s) => s.context.contacted);
   const reset = useChatStore((s) => s.reset);
 
@@ -89,6 +96,7 @@ export function ChatShell() {
         blocks: data.turn.blocks,
       });
       useChatStore.getState().setContext(data.context);
+      if (data.basketView) useChatStore.getState().setBasketView(data.basketView);
       if (data.context.category) useChatStore.getState().setTopic("خرید کفش");
     } catch {
       useChatStore.getState().updateMessage(pendingId, { pending: false, failed: true });
@@ -96,6 +104,55 @@ export function ChatShell() {
       setBusy(false);
     }
   }, []);
+
+  /* ---------------- server actions (basket, route, dismiss, mute) ---------------- */
+  const runAction = useCallback(
+    async (
+      type: ActionRequestType,
+      payload: Record<string, unknown> = {},
+      opts: { silent?: boolean; actionLabel?: string } = {}
+    ) => {
+      if (useChatStore.getState().messages.some((m) => m.pending)) return;
+      const store = useChatStore.getState();
+      if (!opts.silent && opts.actionLabel) {
+        store.addMessage({ role: "action", text: opts.actionLabel });
+      }
+      const pendingId = store.addMessage({ role: "assistant", pending: true });
+      setBusy(true);
+      try {
+        const res = await fetch("/api/chat/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: useChatStore.getState().sessionId,
+            context: useChatStore.getState().context,
+            action: { type, payload },
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: ChatResponseBody = await res.json();
+        if (opts.silent || data.turn.blocks.length === 0) {
+          // silent edit: drop the placeholder bubble, sync state, toast
+          useChatStore.getState().updateMessage(pendingId, { pending: false });
+          useChatStore.setState((s) => ({ messages: s.messages.filter((m) => m.id !== pendingId) }));
+          if (opts.actionLabel) toast({ title: opts.actionLabel, description: "سبد به‌روز شد." });
+        } else {
+          useChatStore.getState().updateMessage(pendingId, {
+            pending: false,
+            text: data.turn.text,
+            blocks: data.turn.blocks,
+          });
+        }
+        useChatStore.getState().setContext(data.context);
+        if (data.basketView) useChatStore.getState().setBasketView(data.basketView);
+      } catch {
+        useChatStore.getState().updateMessage(pendingId, { pending: false, failed: true });
+      } finally {
+        setBusy(false);
+      }
+    },
+    []
+  );
 
   /* ---------------- quick replies / GPS ---------------- */
   const handleQuickReply = useCallback(
@@ -137,9 +194,13 @@ export function ChatShell() {
         void send("فقط فروشگاه‌های موجودی تاییدشده");
         return;
       }
+      if (qr.action) {
+        void runAction(qr.action, qr.payload ?? {}, { actionLabel: qr.label });
+        return;
+      }
       if (qr.message) void send(qr.message);
     },
-    [send]
+    [send, runAction]
   );
 
   /* ---------------- compare ---------------- */
@@ -176,6 +237,17 @@ export function ChatShell() {
     [send]
   );
 
+  const addToBasket = useCallback(
+    (p: ProductCardData) => {
+      void runAction("add_to_basket", { productId: p.id }, { actionLabel: `افزودن «${p.name}» به سبد` });
+    },
+    [runAction]
+  );
+
+  const planRoute = useCallback(() => {
+    void send("مسیر سبد خریدم رو بچین");
+  }, [send]);
+
   const preferencePick = useCallback(
     (p: Priority) => {
       void send(`اولویت: ${PRIORITY_FA[p]}`);
@@ -211,16 +283,16 @@ export function ChatShell() {
 
   /* ---------------- store contact ---------------- */
   const contactStore = useCallback(
-    async (store: StoreCardData) => {
+    async (store: { id: string }, productId?: string, storeName?: string) => {
       if (contactingId) return;
-      const productId = useChatStore.getState().context.selectedProductId;
-      if (!productId) {
+      const pid = productId ?? useChatStore.getState().context.selectedProductId;
+      if (!pid) {
         toast({ title: "اول مدل محصول رو انتخاب کن" });
         return;
       }
       setContactingId(store.id);
       const st = useChatStore.getState();
-      st.addMessage({ role: "action", text: `استعلام موجودی از «${store.name}»` });
+      st.addMessage({ role: "action", text: `استعلام موجودی از «${storeName ?? store.id}»` });
       const pendingId = st.addMessage({ role: "assistant", pending: true });
       try {
         const res = await fetch("/api/chat/action", {
@@ -231,7 +303,7 @@ export function ChatShell() {
             context: useChatStore.getState().context,
             action: {
               type: "contact_store",
-              payload: { storeId: store.id, productId },
+              payload: { storeId: store.id, productId: pid },
             },
           }),
         });
@@ -243,6 +315,7 @@ export function ChatShell() {
           blocks: data.turn.blocks,
         });
         useChatStore.getState().setContext(data.context);
+        if (data.basketView) useChatStore.getState().setBasketView(data.basketView);
       } catch {
         useChatStore.getState().updateMessage(pendingId, { pending: false, failed: true });
       } finally {
@@ -260,9 +333,15 @@ export function ChatShell() {
     onProductStores: productStores,
     onCriteriaChange: criteriaChange,
     onFiltersChange: filtersChange,
-    onContactStore: (s: StoreCardData) => void contactStore(s),
+    onContactStore: (s: { id: string }, productId?: string, storeName?: string) =>
+      void contactStore(s, productId, storeName),
     onPreferencePick: preferencePick,
+    onAddToBasket: addToBasket,
+    onBasketAction: (type: ActionRequestType, payload: Record<string, unknown>, label?: string) =>
+      void runAction(type, payload, { actionLabel: label }),
+    onPlanRoute: planRoute,
     compareIds,
+    basketIds,
     contacted,
     contactingId,
     busy,
@@ -356,6 +435,11 @@ export function ChatShell() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {/* persistent basket bar */}
+      {basketView && basketView.items.length > 0 ? (
+        <BasketBar basketView={basketView} onAction={(t, p, l) => void runAction(t, p, { actionLabel: l })} onPlanRoute={planRoute} busy={busy} />
       ) : null}
 
       {/* composer */}

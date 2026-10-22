@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleMessage } from "@/lib/agent/orchestrator";
 import { validateBlocks } from "@/lib/block-schema";
 import { DEFAULT_CONTEXT, type ConversationContext } from "@/lib/types";
+import { buildBasketView } from "@/lib/basket/basket-view";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,17 @@ export async function POST(req: NextRequest) {
     }
     const ctx: ConversationContext = { ...DEFAULT_CONTEXT, ...(context ?? {}) };
     const { turn, context: nextCtx } = handleMessage(message.trim(), ctx);
+    const basketView = buildBasketView(nextCtx.basket ?? [], {
+      optimizeMode: nextCtx.optimizeMode,
+      transport: nextCtx.transport,
+      hasRoute: Boolean(nextCtx.lastPlannedAt),
+      lastPlannedAt: nextCtx.lastPlannedAt,
+      contacted: nextCtx.contacted,
+    });
     return NextResponse.json({
       turn: { ...turn, blocks: validateBlocks(turn.blocks) },
       context: nextCtx,
+      basketView,
     });
   } catch (err) {
     console.error("[/api/chat] error:", err);

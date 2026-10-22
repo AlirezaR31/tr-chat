@@ -8,7 +8,7 @@
  * and invalid/unknown blocks fall back to a safe error card. Arbitrary
  * model HTML/JS can never reach the DOM through this path.
  */
-import type { Block, Criteria, QuickReply, StoreCardData, StoreFilters as StoreFiltersT } from "@/lib/types";
+import type { ActionRequestType, Block, ContactOutcome, Criteria, QuickReply, StoreCardData, StoreFilters as StoreFiltersT } from "@/lib/types";
 import { validateBlock } from "@/lib/block-schema";
 import { ErrorState, EmptyStateBlock } from "@/components/generative/blocks/empty-state";
 import { SearchContextBlock } from "@/components/generative/blocks/search-context";
@@ -20,6 +20,10 @@ import { ComparisonPanel } from "@/components/generative/blocks/comparison-panel
 import { StorePanel } from "@/components/generative/blocks/store-panel";
 import { ContactStatus } from "@/components/generative/blocks/contact-status";
 import { AlternativeStores } from "@/components/generative/blocks/alternative-stores";
+import { BasketSummaryBlock } from "@/components/generative/blocks/basket-summary";
+import { BasketRecommendationsBlock } from "@/components/generative/blocks/basket-recs";
+import { RoutePlanBlock } from "@/components/generative/blocks/route-plan";
+import { PlanComparisonBlock } from "@/components/generative/blocks/plan-comparison";
 import { DemoNotice } from "@/components/generative/blocks/empty-state";
 import type { ProductCardData } from "@/lib/types";
 
@@ -30,10 +34,14 @@ export interface RegistryHandlers {
   onProductStores: (p: ProductCardData) => void;
   onCriteriaChange: (c: Criteria) => void;
   onFiltersChange: (f: StoreFiltersT) => void;
-  onContactStore: (store: StoreCardData) => void;
+  onContactStore: (store: { id: string }, productId?: string, storeName?: string) => void;
   onPreferencePick: (p: "comfort" | "price" | "durability" | "style") => void;
+  onAddToBasket: (p: ProductCardData) => void;
+  onBasketAction: (type: ActionRequestType, payload: Record<string, unknown>, label?: string) => void;
+  onPlanRoute: () => void;
   compareIds: string[];
-  contacted: Record<string, { kind: string; at: number; method: string; note: string; newPrice?: number }>;
+  basketIds: string[];
+  contacted: Record<string, ContactOutcome>;
   contactingId: string | null;
   busy: boolean;
 }
@@ -69,9 +77,11 @@ export function BlockRenderer({
           products={safe.products}
           title={safe.title}
           compareIds={handlers.compareIds}
+          basketIds={handlers.basketIds}
           onToggleCompare={handlers.onToggleCompare}
           onDetails={handlers.onProductDetails}
           onStores={handlers.onProductStores}
+          onAddToBasket={handlers.onAddToBasket}
         />
       );
     case "product_details":
@@ -109,6 +119,37 @@ export function BlockRenderer({
       return <QuickReplies replies={safe.replies} onPick={handlers.onQuickReply} disabled={handlers.busy} />;
     case "demo_notice":
       return <DemoNotice label={safe.label} />;
+    case "basket_summary":
+      return (
+        <BasketSummaryBlock
+          block={safe}
+          onAction={handlers.onBasketAction}
+          onPlanRoute={handlers.onPlanRoute}
+          busy={handlers.busy}
+        />
+      );
+    case "basket_recommendations":
+      return (
+        <BasketRecommendationsBlock
+          key={`${safe.forProductId}:${safe.recs.map((r) => r.product.id).join(",")}`}
+          block={safe}
+          onAction={handlers.onBasketAction}
+          busy={handlers.busy}
+        />
+      );
+    case "route_plan":
+      return (
+        <RoutePlanBlock
+          block={safe}
+          onAction={handlers.onBasketAction}
+          onContactStore={(storeId, productId, storeName) =>
+            handlers.onContactStore({ id: storeId }, productId, storeName)
+          }
+          busy={handlers.busy}
+        />
+      );
+    case "plan_comparison":
+      return <PlanComparisonBlock block={safe} onAction={handlers.onBasketAction} busy={handlers.busy} />;
     default:
       return <ErrorState message="نوع پاسخ شناخته نشد." />;
   }
