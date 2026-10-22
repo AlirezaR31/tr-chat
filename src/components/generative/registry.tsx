@@ -57,7 +57,7 @@ export function BlockRenderer({
   switch (safe.type) {
     case "text":
       return (
-        <p className="whitespace-pre-line text-[13.5px] leading-7 text-foreground/95">
+        <p className="whitespace-pre-line text-sm leading-7 text-foreground/95">
           {safe.text}
         </p>
       );
@@ -118,6 +118,8 @@ export function BlockRenderer({
 import { formatToman } from "@/lib/format";
 import { SafeImage, ScoreBar } from "@/components/generative/ui";
 import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 function ProductDetailsInline({
   product,
@@ -127,7 +129,7 @@ function ProductDetailsInline({
   handlers: RegistryHandlers;
 }) {
   return (
-    <article className="my-1.5 rounded-2xl border border-border bg-card p-2.5">
+    <Card className="my-1.5 gap-0 rounded-2xl border border-border bg-card p-2.5 py-2.5">
       <div className="flex gap-3">
         <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-white">
           <SafeImage
@@ -138,27 +140,28 @@ function ProductDetailsInline({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h5 className="mb-0.5 truncate text-[13px] font-semibold">{product.name}</h5>
-          <p className="mb-1 text-[11px] text-muted-foreground">
+          <h5 className="mb-0.5 truncate text-sm font-semibold leading-6">{product.name}</h5>
+          <p className="mb-1 text-xs leading-5 text-muted-foreground">
             {product.brand} · {product.model} · سایز {product.sizes}
           </p>
-          <p className="text-[13px] font-bold">{formatToman(product.priceFrom)}</p>
+          <p className="text-sm font-bold leading-6">{formatToman(product.priceFrom)}</p>
           <div className="mt-1 flex items-center gap-1.5">
             <ScoreBar value={product.matchScore} className="w-20" highlight />
-            <span className="text-[10px] text-muted-foreground">
-              {product.matchScore}٪ تطابق
+            <span className="text-xs leading-5 text-muted-foreground">
+              {product.matchScore.toLocaleString("fa-IR")}٪ تطابق
             </span>
           </div>
         </div>
       </div>
-      <button
+      <Button
+        variant="outline"
         onClick={() => handlers.onProductStores(product)}
-        className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl border border-border bg-secondary/50 py-2 text-[12px] font-medium text-foreground/90 transition-colors hover:bg-secondary"
+        className="mt-2 h-9 w-full gap-1 rounded-xl border-border bg-secondary/50 text-xs font-medium text-foreground/90 hover:bg-secondary hover:text-foreground"
       >
         دیدن فروشگاه‌های تهران
         <ChevronLeft className="size-3.5" aria-hidden />
-      </button>
-    </article>
+      </Button>
+    </Card>
   );
 }
 

@@ -31,7 +31,7 @@ export function AlternativeStores({
           />
         ))}
       </div>
-      <p className="mt-1.5 text-[10.5px] leading-5 text-muted-foreground">{block.reason}</p>
+      <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{block.reason}</p>
     </section>
   );
 }

@@ -1,31 +1,40 @@
 "use client";
 
-/** Shared small primitives for generative blocks — consistent radii, borders, chips. */
+/**
+ * Shared small primitives for generative blocks.
+ * Built on shadcn/ui (Button, Badge) so focus rings, disabled states,
+ * tap heights and typography stay consistent everywhere.
+ *
+ * Type scale (see globals.css): text-sm/leading-6 body · text-xs/leading-5 meta.
+ */
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
+/** Rounded chip button (quick replies, filters, criteria) — shadcn Button under the hood. */
 export function Pill({
   children,
   className,
   active,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
+}: React.ComponentProps<typeof Button> & { active?: boolean }) {
   return (
-    <button
+    <Button
       {...props}
+      variant="outline"
       className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] leading-6 transition-colors",
-        active
-          ? "border-primary/60 bg-primary/15 text-[#f2b8ba]"
-          : "border-border bg-secondary/60 text-foreground/90 hover:bg-secondary",
-        "disabled:opacity-40",
+        "h-9 gap-1.5 rounded-full border-border bg-secondary/60 px-3.5 text-xs font-medium leading-5 hover:bg-secondary hover:text-foreground",
+        active &&
+          "border-primary/60 bg-primary/15 text-[#f2b8ba] hover:bg-primary/20 hover:text-[#f2b8ba]",
         className
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
+/** Small meta chip — shadcn Badge. */
 export function Tag({
   children,
   className,
@@ -34,14 +43,12 @@ export function Tag({
   className?: string;
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] leading-5 text-muted-foreground",
-        className
-      )}
+    <Badge
+      variant="secondary"
+      className={cn("gap-1 rounded-md bg-secondary px-1.5 font-normal leading-4 text-muted-foreground", className)}
     >
       {children}
-    </span>
+    </Badge>
   );
 }
 
@@ -79,8 +86,8 @@ export function ScoreBar({
 export function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <div className="mb-2 flex items-baseline justify-between gap-2">
-      <h4 className="text-[13px] font-semibold text-foreground/90">{children}</h4>
-      {hint ? <span className="text-[11px] text-muted-foreground">{hint}</span> : null}
+      <h4 className="text-sm font-semibold leading-6 text-foreground/90">{children}</h4>
+      {hint ? <span className="text-xs leading-5 text-muted-foreground">{hint}</span> : null}
     </div>
   );
 }

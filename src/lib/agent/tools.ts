@@ -118,7 +118,7 @@ export function buildComparison(
       },
       {
         label: "وزن",
-        value: `${p.specs.weightGrams} گرم`,
+        value: `${p.specs.weightGrams.toLocaleString("fa-IR")} گرم`,
         score:
           1 -
           (p.specs.weightGrams - ctx.minWeight) /
@@ -126,7 +126,7 @@ export function buildComparison(
       },
       {
         label: "قیمت",
-        value: `${p.priceFrom.toLocaleString("en-US")} ت`,
+        value: `${p.priceFrom.toLocaleString("fa-IR")} تومان`,
         score:
           (ctx.maxPrice - p.priceFrom) / Math.max(ctx.maxPrice - ctx.minPrice, 1),
       },

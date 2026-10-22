@@ -8,9 +8,14 @@
 import { ChevronLeft, GitCompareArrows, MapPin, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProductCardData } from "@/lib/types";
-import { formatToman } from "@/lib/format";
-import { Pill, SafeImage } from "@/components/generative/ui";
-import { ScoreBar } from "@/components/generative/ui";
+import { formatToman, toFaDigits } from "@/lib/format";
+import { SafeImage, ScoreBar } from "@/components/generative/ui";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function ProductCard({
   product,
@@ -34,23 +39,32 @@ export function ProductCard({
       aria-label={product.name}
     >
       {/* compare toggle */}
-      <button
-        onClick={() => onToggleCompare(product.id)}
-        aria-pressed={inCompare}
-        aria-label={inCompare ? "حذف از مقایسه" : "افزودن به مقایسه"}
-        className={cn(
-          "absolute left-1.5 top-1.5 z-10 rounded-full p-1.5 backdrop-blur transition-colors",
-          inCompare
-            ? "bg-primary text-white"
-            : "bg-black/45 text-white/85 hover:bg-black/65"
-        )}
-      >
-        {inCompare ? <X className="size-3.5" /> : <GitCompareArrows className="size-3.5" />}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleCompare(product.id)}
+            aria-pressed={inCompare}
+            aria-label={inCompare ? "حذف از مقایسه" : "افزودن به مقایسه"}
+            className={cn(
+              "absolute left-1.5 top-1.5 z-10 size-7 rounded-full backdrop-blur",
+              inCompare
+                ? "bg-primary text-white hover:bg-primary/90 hover:text-white"
+                : "bg-black/45 text-white/85 hover:bg-black/65 hover:text-white"
+            )}
+          >
+            {inCompare ? <X className="size-3.5" /> : <GitCompareArrows className="size-3.5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {inCompare ? "حذف از مقایسه" : "افزودن به مقایسه"}
+        </TooltipContent>
+      </Tooltip>
 
       <button
         onClick={() => onDetails(product)}
-        className="block w-full text-right"
+        className="block w-full text-right outline-none"
         aria-label={`جزئیات ${product.name}`}
       >
         <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-xl bg-white">
@@ -61,16 +75,17 @@ export function ProductCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         </div>
-        <h5 className="mb-0.5 line-clamp-2 min-h-10 text-[12.5px] font-medium leading-[1.7] text-foreground">
+        {/* 2 lines at text-xs/leading-5 = exactly 40px — no clipped descenders */}
+        <h5 className="mb-0.5 line-clamp-2 min-h-10 text-xs font-medium leading-5 text-foreground">
           {product.name}
         </h5>
-        <p className="mb-1.5 text-[11px] text-muted-foreground">سایز {product.sizes}</p>
+        <p className="mb-1.5 text-xs leading-5 text-muted-foreground">سایز {product.sizes}</p>
       </button>
 
       <div className="mb-1.5 flex items-center gap-1.5">
         <ScoreBar value={product.matchScore} className="flex-1" highlight />
-        <span className="text-[10.5px] tabular-nums text-muted-foreground">
-          {product.matchScore}٪
+        <span className="text-xs leading-5 tabular-nums text-muted-foreground">
+          {toFaDigits(product.matchScore)}٪
         </span>
       </div>
 
@@ -79,21 +94,23 @@ export function ProductCard({
         className="flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-right transition-colors hover:bg-secondary/60"
         aria-label={`فروشگاه‌های ${product.name}`}
       >
-        <span className="text-[12.5px] font-semibold text-foreground">
+        <span className="text-sm font-semibold leading-6 text-foreground">
           از {formatToman(product.priceFrom).replace(" تومان", "")}{" "}
-          <span className="text-[10.5px] font-normal text-muted-foreground">تومان</span>
+          <span className="text-xs font-normal leading-5 text-muted-foreground">تومان</span>
         </span>
         <ChevronLeft className="size-4 text-muted-foreground" aria-hidden />
       </button>
 
       <div className="mt-1 flex items-center justify-between">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => onStores(product)}
-          className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
+          className="h-6 gap-1 rounded-lg px-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <MapPin className="size-3" aria-hidden />
-          {product.storeCount} فروشگاه در تهران
-        </button>
+          {toFaDigits(product.storeCount)} فروشگاه در تهران
+        </Button>
       </div>
     </article>
   );
@@ -117,7 +134,7 @@ export function ProductCarousel({
   return (
     <div className="my-1" role="list" aria-label={title ?? "پیشنهادهای محصول"}>
       {title ? (
-        <div className="mb-1.5 px-0.5 text-[12px] font-semibold text-muted-foreground">{title}</div>
+        <div className="mb-1.5 px-0.5 text-xs font-semibold leading-5 text-muted-foreground">{title}</div>
       ) : null}
       <div className="fade-x -mx-1 overflow-x-auto px-1 pb-2 no-scrollbar">
         <div className="flex w-max snap-x gap-2.5">

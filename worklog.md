@@ -50,3 +50,26 @@ Stage Summary:
 - Honest verification system: confirmed/reported/listing-only/unknown + timestamps + sources; contact outcomes labelled شبیه‌سازی
 - Controlled block registry with zod validation; no arbitrary HTML reaches DOM
 - All 10 acceptance scenarios pass in browser
+
+---
+Task ID: 3
+Agent: main (Z.ai)
+Task: Fix font/height inconsistencies + migrate UI to shadcn/ui primitives
+
+Work Log:
+- Diagnosed root cause of "incorrect height/font": ~70 arbitrary fractional text-[9–14.5px] sizes, mixed leading-4/5/6/7 (footer disclaimer clipped, product-card title min-h-10 vs leading-[1.7] overflow, cramped 11px chips), Latin digits mixed with Persian numerals
+- Established documented Persian type scale in globals.css (body text-sm/leading-6, meta text-xs/leading-5, heading text-lg) — no fractional px anywhere in app code; body base typography + optimizeLegibility
+- Rebuilt generative/ui.tsx primitives on shadcn: Pill→Button(outline)+active state, Tag→Badge, SectionTitle normalized
+- Migrated blocks to shadcn: Card (comparison entries, store cards, contact status, inline details, hero tiles), Badge (all status/outcome/context chips), Button (all actions incl. drawer CTA, compare bar, send/mic, jump FAB, new chat), Alert (error state), Separator (filter divider), Tooltip (compare toggle, new chat)
+- Fixed Latin digit leaks: matchScore٪ → toFaDigits, storeCount, compare count, weightGrams/priceFrom in specs & comparison attributes (tools.ts), formatDistance → Persian digits in geo.ts, MapLegend
+- Fixed map caption mixed-script "(هaversine)" → pure Persian
+- product-card title: line-clamp-2 min-h-10 text-xs leading-5 = exact 40px, no clipped descenders
+- Footer disclaimer text-[10px] leading-4 (clipped) → text-xs leading-5, fully visible
+- product-details drawer: Button CTA, Persian digits via toLocaleString("fa-IR")
+- Verified in browser (390×844 + 1280×800): hero, carousel cards, comparison panel (criteria pills, winner badge, bars, pros/cons), store panel (map, filter pills, empty state + recovery chips, contact simulation flow, alternative stores), drawer, persistence, new chat
+- bun lint clean; production build passes; no console/page errors
+
+Stage Summary:
+- Typography unified on shadcn-compatible scale; all controls now shadcn primitives (Button/Badge/Card/Alert/Separator/Tooltip/Drawer)
+- Persian numeral consistency enforced end-to-end (client + agent tools + geo)
+- All 10 E2E scenarios still pass after migration

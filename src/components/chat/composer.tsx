@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { ArrowUp, Mic } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export function ChatComposer({
   onSend,
@@ -106,35 +107,35 @@ export function ChatComposer({
           rows={1}
           placeholder={listening ? "دارم گوش می‌دم…" : "پیامت رو بنویس..."}
           aria-label="متن پیام"
-          className="max-h-[110px] flex-1 resize-none bg-transparent text-[13.5px] leading-6 text-foreground outline-none placeholder:text-muted-foreground"
+          className="max-h-[110px] flex-1 resize-none bg-transparent text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={toggleMic}
           aria-label={listening ? "توقف ضبط" : "ورودی صوتی"}
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-full transition-colors",
+            "size-8 shrink-0 rounded-full",
             listening
-              ? "bg-primary/15 text-primary pulse-ring"
+              ? "bg-primary/15 text-primary pulse-ring hover:bg-primary/20 hover:text-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Mic className="size-[18px]" aria-hidden />
-        </button>
+        </Button>
       </div>
-      <button
+      <Button
         type="submit"
         disabled={!canSend}
         aria-label="ارسال پیام"
         className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-full transition-all",
-          canSend
-            ? "bg-primary text-white hover:bg-brand-hover active:scale-95"
-            : "bg-secondary text-muted-foreground"
+          "size-11 shrink-0 rounded-full p-0 transition-all",
+          canSend ? "active:scale-95" : "bg-secondary text-muted-foreground"
         )}
       >
         <ArrowUp className="size-5" aria-hidden />
-      </button>
+      </Button>
     </form>
   );
 }

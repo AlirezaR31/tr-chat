@@ -8,6 +8,7 @@ import { Ban, BadgeCheck, Clock, DoorClosed, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Block, ContactOutcome } from "@/lib/types";
 import { formatJalaliDateTime, formatToman } from "@/lib/format";
+import { Card } from "@/components/ui/card";
 
 const META: Record<
   ContactOutcome["kind"],
@@ -42,8 +43,8 @@ export function ContactStatus({
   const meta = META[outcome.kind];
   const { Icon } = meta;
   return (
-    <section
-      className={cn("my-2 rounded-2xl border bg-card p-3.5", meta.cls)}
+    <Card
+      className={cn("my-2 gap-0 rounded-2xl border bg-card p-3.5 py-3.5", meta.cls)}
       aria-live="polite"
       aria-label={meta.title}
     >
@@ -52,23 +53,23 @@ export function ContactStatus({
           <Icon className="size-4 text-foreground/85" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-[13.5px] font-semibold">{meta.title}</p>
-          <p className="truncate text-[11.5px] text-muted-foreground">{storeName}</p>
+          <p className="truncate text-sm font-semibold leading-6">{meta.title}</p>
+          <p className="truncate text-xs leading-5 text-muted-foreground">{storeName}</p>
         </div>
       </div>
-      <p className="mb-2 text-[12.5px] leading-6 text-foreground/85">{outcome.note}</p>
+      <p className="mb-2 text-sm leading-6 text-foreground/85">{outcome.note}</p>
       {outcome.kind === "price_changed" && outcome.newPrice ? (
-        <p className="mb-2 rounded-lg bg-warning-soft px-2.5 py-1.5 text-[12px] text-[#e6a23c]">
+        <p className="mb-2 rounded-lg bg-warning-soft px-2.5 py-1.5 text-xs leading-5 text-[#e6a23c]">
           قیمت جدید: {formatToman(outcome.newPrice)}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-5 text-muted-foreground">
         <span>زمان: {formatJalaliDateTime(outcome.at)}</span>
         <span aria-hidden>·</span>
         <span>{outcome.method}</span>
         <span aria-hidden>·</span>
         <span>نتیجه تماس نمایشی است — تایید مستقل ترب نیست</span>
       </div>
-    </section>
+    </Card>
   );
 }

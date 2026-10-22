@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Honest verification primitives:
+ * Honest verification primitives (shadcn Badge based):
  *  - StockStatus: distinguishes confirmed / reported / listing-only / unknown
  *  - VerificationTimestamp: always shows source + time for verification data
  *  - CreditEligibilityBadge: verified installment vs unverified claim
@@ -10,6 +10,7 @@ import { BadgeCheck, Clock, CircleHelp, Store, CircleOff, CreditCard, ShieldAler
 import { cn } from "@/lib/utils";
 import type { InstallmentInfo, StockInfo } from "@/lib/types";
 import { formatJalaliDateTime, formatRelative } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
 
 const STOCK_META = {
   confirmed: {
@@ -38,16 +39,14 @@ export function StockStatus({ stock, compact }: { stock: StockInfo; compact?: bo
   const meta = STOCK_META[stock.status];
   const { Icon } = meta;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] leading-5",
-        meta.cls
-      )}
+    <Badge
+      variant="secondary"
+      className={cn("gap-1 rounded-md px-1.5 font-normal leading-4", meta.cls)}
       title={stock.method ?? undefined}
     >
       <Icon className="size-3 shrink-0" aria-hidden />
       <span className="truncate">{compact ? meta.label.split(" — ")[0] : meta.label}</span>
-    </span>
+    </Badge>
   );
 }
 
@@ -62,7 +61,7 @@ export function VerificationTimestamp({
 }) {
   if (!at) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
+    <span className="inline-flex items-center gap-1 text-xs leading-5 text-muted-foreground">
       <ShieldAlert className="size-3 shrink-0 opacity-70" aria-hidden />
       {prefix}: {formatRelative(at)} ({formatJalaliDateTime(at)})
       {method ? ` · ${method}` : ""}
@@ -73,24 +72,26 @@ export function VerificationTimestamp({
 export function CreditEligibilityBadge({ installment }: { installment: InstallmentInfo }) {
   if (installment.verified) {
     return (
-      <span
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] leading-5 text-[#3ecf8e] bg-[rgba(47,179,107,0.13)]"
+      <Badge
+        variant="secondary"
+        className="gap-1 rounded-md bg-[rgba(47,179,107,0.13)] px-1.5 font-normal leading-4 text-[#3ecf8e]"
         title={`منبع تایید: ${installment.provider ?? "—"}${installment.verifiedAt ? ` — ${formatRelative(installment.verifiedAt)}` : ""}`}
       >
         <CreditCard className="size-3 shrink-0" aria-hidden />
         اقساط تاییدشده
-      </span>
+      </Badge>
     );
   }
   if (installment.claim) {
     return (
-      <span
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] leading-5 text-muted-foreground bg-secondary"
+      <Badge
+        variant="secondary"
+        className="gap-1 rounded-md bg-secondary px-1.5 font-normal leading-4 text-muted-foreground"
         title="این ادعا توسط ترب تایید نشده است"
       >
         <CircleOff className="size-3 shrink-0" aria-hidden />
         {installment.claim} — تاییدنشده
-      </span>
+      </Badge>
     );
   }
   return null;

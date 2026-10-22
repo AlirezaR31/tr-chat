@@ -18,7 +18,7 @@ export function PreferenceSelector({
 }) {
   return (
     <div className="my-1.5" role="group" aria-label="اولویت خرید">
-      <p className="mb-1.5 text-[11.5px] text-muted-foreground">اولویتت کدومه؟</p>
+      <p className="mb-1.5 text-xs leading-5 text-muted-foreground">اولویتت کدومه؟</p>
       <div className="flex flex-wrap gap-1.5">
         {ORDER.map((p) => (
           <Pill

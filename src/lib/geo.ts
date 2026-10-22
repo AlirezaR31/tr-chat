@@ -3,6 +3,10 @@ import type { GeoPoint } from "./types";
 
 const EARTH_R = 6371; // km
 
+const FA_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+const faDigits = (s: string | number) =>
+  String(s).replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
+
 /** Great-circle distance in km — real calculation on provided coordinates. */
 export function haversineKm(a: GeoPoint, b: GeoPoint): number {
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -15,8 +19,8 @@ export function haversineKm(a: GeoPoint, b: GeoPoint): number {
 }
 
 export function formatDistance(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} متر`;
-  return `${km.toFixed(km < 10 ? 1 : 0).replace(".", "٫")} کیلومتر`;
+  if (km < 1) return `${faDigits(Math.round(km * 1000))} متر`;
+  return `${faDigits(km.toFixed(km < 10 ? 1 : 0).replace(".", "٫"))} کیلومتر`;
 }
 
 /**

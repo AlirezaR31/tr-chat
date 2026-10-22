@@ -25,6 +25,7 @@ import { ConversationMessage } from "@/components/chat/conversation-message";
 import { Hero } from "@/components/chat/hero";
 import { ProductDetails } from "@/components/generative/blocks/product-details";
 import { PRIORITY_FA } from "@/lib/scoring";
+import { Button } from "@/components/ui/button";
 
 export function ChatShell() {
   const [busy, setBusy] = useState(false);
@@ -311,42 +312,47 @@ export function ChatShell() {
 
       {/* jump-to-bottom FAB */}
       {showJump && messages.length > 0 ? (
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => scrollToBottom(true)}
           aria-label="برو به آخر پیام‌ها"
-          className="absolute bottom-32 left-4 z-20 flex size-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg transition-colors hover:text-foreground"
+          className="absolute bottom-32 left-4 z-20 size-10 rounded-full border border-border bg-card text-muted-foreground shadow-lg hover:text-foreground"
         >
           <ArrowDown className="size-4.5" aria-hidden />
-        </button>
+        </Button>
       ) : null}
 
       {/* compare bar */}
       {compareBarVisible ? (
         <div className="border-t border-border/70 bg-background/95 px-3 py-2 backdrop-blur">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs leading-5 text-muted-foreground">
               <Scale className="size-4 text-primary" aria-hidden />
               {compareIds.length < 2
                 ? "برای مقایسه حداقل ۲ محصول انتخاب کن"
-                : `${compareIds.length} محصول برای مقایسه انتخاب شد`}
+                : `${compareIds.length.toLocaleString("fa-IR")} محصول برای مقایسه انتخاب شد`}
             </div>
             <div className="flex items-center gap-1.5">
               {compareIds.length >= 2 ? (
-                <button
+                <Button
                   onClick={() => void send("مقایسه‌شون کن")}
                   disabled={busy}
-                  className="min-h-9 rounded-full bg-primary px-4 text-[12.5px] font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
+                  size="sm"
+                  className="h-9 rounded-full px-4 text-xs font-semibold"
                 >
                   مقایسه کن
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => useChatStore.getState().patchContext({ compareIds: [] })}
                 aria-label="پاک کردن انتخاب مقایسه"
-                className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"
+                className="size-9 rounded-full text-muted-foreground hover:bg-secondary"
               >
                 <X className="size-4" aria-hidden />
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -356,7 +362,7 @@ export function ChatShell() {
       <div className="border-t border-border/70 bg-background/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur">
         <div className="mx-auto max-w-3xl">
           <ChatComposer onSend={(t) => void send(t)} busy={busy} />
-          <p className="mt-2 text-center text-[10px] leading-4 text-muted-foreground">
+          <p className="mt-2 text-center text-xs leading-5 text-muted-foreground">
             دستیار تُرب ممکنه اشتباه کنه؛ اطلاعات مهم رو بررسی کن. داده‌های این نسخه نمایشی است.
           </p>
         </div>

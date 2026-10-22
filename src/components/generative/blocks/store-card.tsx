@@ -11,6 +11,9 @@ import type { ContactOutcome, StoreCardData } from "@/lib/types";
 import { formatToman } from "@/lib/format";
 import { formatDistance } from "@/lib/geo";
 import { StockStatus, VerificationTimestamp, CreditEligibilityBadge } from "@/components/generative/blocks/status-badges";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 const OUTCOME_META: Record<
   ContactOutcome["kind"],
@@ -45,62 +48,65 @@ export function StoreCard({
   const directionsUrl = `https://www.openstreetmap.org/directions?to=${store.lat},${store.lng}`;
 
   return (
-    <article
+    <Card
       onClick={() => onSelect(store.id)}
       className={cn(
-        "cursor-pointer rounded-2xl border bg-card p-3 transition-colors",
-        selected ? "border-primary/60 ring-1 ring-primary/30" : "border-border hover:border-muted-foreground/40"
+        "cursor-pointer gap-0 rounded-2xl border p-3 py-3 transition-colors",
+        selected
+          ? "border-primary/60 ring-1 ring-primary/30"
+          : "border-border hover:border-muted-foreground/40"
       )}
       aria-label={`${store.name}، ${formatToman(store.price)}`}
     >
       <div className="flex items-start gap-2.5">
         <span
           className={cn(
-            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold leading-none",
             selected ? "bg-primary text-white" : "bg-secondary text-muted-foreground"
           )}
         >
-          {index}
+          {index.toLocaleString("fa-IR")}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <h5 className="truncate text-[13.5px] font-semibold">{store.name}</h5>
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground">
+            <h5 className="truncate text-sm font-semibold leading-6">{store.name}</h5>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-xs leading-5 text-muted-foreground">
               <Star className="size-3 fill-[#e6a23c] text-[#e6a23c]" aria-hidden />
               {store.rating.toLocaleString("fa-IR")}
             </span>
           </div>
-          <p className="mt-0.5 line-clamp-1 text-[11.5px] leading-5 text-muted-foreground">
+          <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-muted-foreground">
             {store.address}
           </p>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-md bg-elevated px-1.5 py-0.5 text-[12.5px] font-bold text-foreground">
+            <Badge variant="secondary" className="rounded-md bg-elevated px-1.5 text-sm font-bold leading-5 text-foreground">
               {formatToman(store.price)}
-            </span>
+            </Badge>
             {outcome ? (
-              <span className={cn("rounded-md px-1.5 py-0.5 text-[11px]", OUTCOME_META[outcome.kind].cls)}>
+              <Badge variant="secondary" className={cn("rounded-md px-1.5 text-xs leading-4", OUTCOME_META[outcome.kind].cls)}>
                 {OUTCOME_META[outcome.kind].label}
                 {outcome.kind === "price_changed" && outcome.newPrice
                   ? ` · جدید: ${formatToman(outcome.newPrice)}`
                   : ""}
-              </span>
+              </Badge>
             ) : (
               <StockStatus stock={store.stock} compact />
             )}
             <CreditEligibilityBadge installment={store.installment} />
-            <span
+            <Badge
+              variant="secondary"
               className={cn(
-                "rounded-md px-1.5 py-0.5 text-[11px]",
+                "gap-1 rounded-md px-1.5 font-normal",
                 store.openNow ? "text-foreground/85 bg-secondary" : "text-muted-foreground bg-secondary"
               )}
             >
-              <Clock className="mb-0.5 ml-0.5 inline size-3" aria-hidden />
+              <Clock className="size-3" aria-hidden />
               {store.openNow ? `باز تا ${store.hoursLabel.split(" تا ")[1]}` : "بسته"}
-            </span>
-            <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] text-foreground/85">
+            </Badge>
+            <Badge variant="secondary" className="rounded-md bg-secondary px-1.5 font-normal text-foreground/85">
               {formatDistance(store.distanceKm)}
-            </span>
+            </Badge>
           </div>
 
           <div className="mt-1">
@@ -112,36 +118,41 @@ export function StoreCard({
           </div>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
               onClick={(e) => {
                 e.stopPropagation();
                 if (!contacting) onContact(store);
               }}
               disabled={contacting}
+              size="sm"
               className={cn(
-                "inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-[12.5px] font-semibold transition-colors",
-                contacting
-                  ? "bg-secondary text-muted-foreground"
-                  : "bg-primary text-white hover:bg-brand-hover"
+                "h-9 flex-1 gap-1.5 rounded-xl px-3 text-xs font-semibold",
+                contacting && "bg-secondary text-muted-foreground"
               )}
             >
               <PhoneCall className={cn("size-3.5", contacting && "animate-pulse")} aria-hidden />
               {contacting ? "در حال تماس…" : outcome ? "استعلام مجدد" : "استعلام موجودی"}
-            </button>
-            <a
-              href={directionsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-border bg-secondary/60 px-3 text-[12.5px] font-medium text-foreground/90 transition-colors hover:bg-secondary"
-              aria-label={`مسیریابی به ${store.name}`}
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 rounded-xl border-border bg-secondary/60 px-3 text-xs font-medium text-foreground/90 hover:bg-secondary hover:text-foreground"
             >
-              <Navigation className="size-3.5" aria-hidden />
-              مسیریابی
-            </a>
+              <a
+                href={directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`مسیریابی به ${store.name}`}
+              >
+                <Navigation className="size-3.5" aria-hidden />
+                مسیریابی
+              </a>
+            </Button>
           </div>
         </div>
       </div>
-    </article>
+    </Card>
   );
 }

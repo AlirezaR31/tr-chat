@@ -2,6 +2,7 @@
 
 /** Empty-state hero — shown when the conversation is empty. */
 import { CreditCard, MapPin, Scale, Sparkles } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 const SUGGESTIONS: Array<{
   icon: React.ComponentType<{ className?: string }>;
@@ -42,26 +43,26 @@ export function Hero({ onSuggest }: { onSuggest: (m: string) => void }) {
       <div className="mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/12 text-primary">
         <Sparkles className="size-7" aria-hidden />
       </div>
-      <h2 className="mb-1.5 text-[19px] font-bold">چطور می‌تونم کمکت کنم؟</h2>
-      <p className="mb-6 max-w-xs text-[12.5px] leading-6 text-muted-foreground">
+      <h2 className="mb-1.5 text-lg font-bold leading-7">چطور می‌تونم کمکت کنم؟</h2>
+      <p className="mb-6 max-w-xs text-sm leading-6 text-muted-foreground">
         بگو دنبال چی هستی؛ من مدل‌های مناسب رو پیدا می‌کنم، مقایسه می‌کنم و
         فروشگاه‌های نزدیکت با موجودی واقعی رو نشونت می‌دم.
       </p>
       <div className="grid w-full max-w-md grid-cols-1 gap-2 sm:grid-cols-2">
         {SUGGESTIONS.map((s) => (
-          <button
+          <Card
             key={s.title}
             onClick={() => onSuggest(s.message)}
-            className="group rounded-2xl border border-border bg-card p-3.5 text-right transition-colors hover:border-muted-foreground/40 hover:bg-elevated"
+            className="group cursor-pointer gap-0 rounded-2xl border-border bg-card p-3.5 py-3.5 text-right transition-colors hover:border-muted-foreground/40 hover:bg-elevated"
           >
             <div className="mb-1 flex items-center gap-2">
               <span className="flex size-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
                 <s.icon className="size-4" aria-hidden />
               </span>
-              <span className="text-[13px] font-semibold">{s.title}</span>
+              <span className="text-sm font-semibold leading-6">{s.title}</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">{s.hint}</p>
-          </button>
+            <p className="text-xs leading-5 text-muted-foreground">{s.hint}</p>
+          </Card>
         ))}
       </div>
     </div>

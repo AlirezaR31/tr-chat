@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { Block, StoreCardData, StoreFilters as StoreFiltersT } from "@/lib/types";
 import { sortStores } from "@/lib/agent/tools";
 import { Pill } from "@/components/generative/ui";
+import { Separator } from "@/components/ui/separator";
 import { StoreMap } from "@/components/generative/blocks/store-map";
 import { StoreCard } from "@/components/generative/blocks/store-card";
 import { formatJalaliDateTime } from "@/lib/format";
@@ -80,7 +81,7 @@ export function StorePanel({
             {s.label}
           </Pill>
         ))}
-        <span className="mx-0.5 h-5 w-px bg-border" aria-hidden />
+        <Separator orientation="vertical" className="mx-0.5 h-5" aria-hidden />
         <Pill active={filters.installmentOnly} onClick={() => toggle("installmentOnly")}>
           اقساط تاییدشده
         </Pill>
@@ -95,8 +96,8 @@ export function StorePanel({
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/60 p-4 text-center">
           <StoreIcon className="mx-auto mb-2 size-6 text-muted-foreground" aria-hidden />
-          <p className="mb-1 text-[13px] font-semibold">فروشگاهی با این شرایط پیدا نشد</p>
-          <p className="mb-3 text-[11.5px] leading-5 text-muted-foreground">
+          <p className="mb-1 text-sm font-semibold leading-6">فروشگاهی با این شرایط پیدا نشد</p>
+          <p className="mb-3 text-xs leading-5 text-muted-foreground">
             فیلترها رو کمی باز کن یا ناحیه دیگه‌ای انتخاب کن.
           </p>
           <div className="flex flex-wrap justify-center gap-1.5">
@@ -129,7 +130,7 @@ export function StorePanel({
         </div>
       )}
 
-      <p className="mt-2 text-[10px] leading-5 text-muted-foreground">
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
         فاصله‌ها با مختصات واقعی {block.location.name} محاسبه شده‌اند؛ اطلاعات فروشگاه‌ها و موجودی، داده نمایشی است (بروزرسانی: {formatJalaliDateTime(Date.now() - 3 * 3600_000)}).
       </p>
     </section>

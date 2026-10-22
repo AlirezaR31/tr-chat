@@ -18,7 +18,7 @@ export function ConversationMessage({
   if (message.role === "user") {
     return (
       <div className="msg-in flex justify-start">
-        <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-bubble px-3.5 py-2.5 text-[13.5px] leading-7 text-foreground">
+        <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-bubble px-3.5 py-2.5 text-sm leading-6 text-foreground">
           {message.text}
         </div>
       </div>
@@ -28,7 +28,7 @@ export function ConversationMessage({
   if (message.role === "action") {
     return (
       <div className="msg-in flex justify-center py-0.5">
-        <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1 text-[11px] text-muted-foreground">
+        <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1 text-xs leading-5 text-muted-foreground">
           {message.text}
         </span>
       </div>

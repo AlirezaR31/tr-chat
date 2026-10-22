@@ -1,9 +1,12 @@
 "use client";
 
-/** EmptyState / ErrorState / DemoNotice blocks. */
+/** EmptyState / ErrorState / DemoNotice blocks — shadcn Alert + Badge based. */
 import { AlertTriangle, Info } from "lucide-react";
 import type { Block, QuickReply } from "@/lib/types";
 import { Pill } from "@/components/generative/ui";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export function EmptyStateBlock({
   block,
@@ -17,8 +20,8 @@ export function EmptyStateBlock({
       className="my-2 rounded-2xl border border-dashed border-border bg-card/60 p-4 text-center"
       aria-live="polite"
     >
-      <p className="mb-1 text-[13.5px] font-semibold">{block.title}</p>
-      <p className="mb-3 text-[12px] leading-6 text-muted-foreground">{block.description}</p>
+      <p className="mb-1 text-sm font-semibold leading-6">{block.title}</p>
+      <p className="mb-3 text-xs leading-5 text-muted-foreground">{block.description}</p>
       {block.replies?.length ? (
         <div className="flex flex-wrap justify-center gap-1.5">
           {block.replies.map((qr, i) => (
@@ -34,10 +37,13 @@ export function EmptyStateBlock({
 
 export function DemoNotice({ label }: { label: string }) {
   return (
-    <p className="my-1 inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[10.5px] text-[#e6a23c]">
+    <Badge
+      variant="secondary"
+      className="my-1 gap-1 rounded-full bg-warning-soft px-2 font-normal leading-4 text-[#e6a23c]"
+    >
       <Info className="size-3" aria-hidden />
       {label}
-    </p>
+    </Badge>
   );
 }
 
@@ -49,22 +55,21 @@ export function ErrorState({
   message?: string;
 }) {
   return (
-    <section
-      className="my-2 rounded-2xl border border-[rgba(229,72,77,0.35)] bg-card p-4"
+    <Alert
+      variant="destructive"
+      className="my-2 rounded-2xl border-[rgba(229,72,77,0.35)] bg-card text-foreground [&>svg]:text-primary"
       role="alert"
     >
-      <div className="mb-1 flex items-center gap-2">
-        <AlertTriangle className="size-4 text-primary" aria-hidden />
-        <p className="text-[13px] font-semibold">مشکلی پیش آمد</p>
-      </div>
-      <p className="mb-3 text-[12px] leading-6 text-muted-foreground">
+      <AlertTriangle className="size-4 text-primary" aria-hidden />
+      <AlertTitle className="text-sm font-semibold leading-6">مشکلی پیش آمد</AlertTitle>
+      <AlertDescription className="text-xs leading-5 text-muted-foreground">
         {message ?? "پیام ارسال نشد. اتصالت رو چک کن و دوباره تلاش کن."}
-      </p>
-      {onRetry ? (
-        <Pill onClick={onRetry} className="border-primary/50 text-[#f2a0a2]">
-          تلاش مجدد
-        </Pill>
-      ) : null}
-    </section>
+        {onRetry ? (
+          <Pill onClick={onRetry} className="h-8 border-primary/50 text-[#f2a0a2]">
+            تلاش مجدد
+          </Pill>
+        ) : null}
+      </AlertDescription>
+    </Alert>
   );
 }

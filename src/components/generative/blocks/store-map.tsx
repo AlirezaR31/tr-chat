@@ -130,8 +130,8 @@ export function StoreMap({
         })}
       </svg>
 
-      <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/45 px-1.5 py-0.5 text-[9.5px] text-white/80 backdrop-blur">
-        نقشه شماتیک نمایشی · فاصله‌ها واقعی (هaversine)
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/45 px-1.5 py-0.5 text-xs leading-4 text-white/80 backdrop-blur">
+        نقشه شماتیک نمایشی · فاصله‌ها واقعی
       </div>
     </div>
   );
@@ -139,8 +139,8 @@ export function StoreMap({
 
 export function MapLegend({ count }: { count: number }) {
   return (
-    <span className={cn("text-[10px] text-muted-foreground")}>
-      {count} فروشگاه روی نقشه
+    <span className={cn("text-xs leading-5 text-muted-foreground")}>
+      {count.toLocaleString("fa-IR")} فروشگاه روی نقشه
     </span>
   );
 }
