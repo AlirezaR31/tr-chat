@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Asics Gel-Contend running shoes product photo"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "Asics Gel-Contend running shoes product photo",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/c7325bbb0615.jpg",
+      "caption": "",
+      "source": "Amazon UK",
+      "original_width": "1658px",
+      "original_height": "900px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/d2127dd3b4dc.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "2098px",
+      "original_height": "1000px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/affb0ab367ad.jpg",
+      "caption": "",
+      "source": "Altitude Sports",
+      "original_width": "3363px",
+      "original_height": "1800px"
+    }
+  ]
+}

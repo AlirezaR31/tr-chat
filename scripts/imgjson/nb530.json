@@ -1,0 +1,26 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "New Balance 530 white sneakers product photo"
+✅ Got 2 images
+{
+  "success": true,
+  "query": "New Balance 530 white sneakers product photo",
+  "count": 2,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/406b578e0b57.jpeg",
+      "caption": "",
+      "source": "Platypus Shoes",
+      "original_width": "1500px",
+      "original_height": "1875px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/70de49c49195.jpg",
+      "caption": "",
+      "source": "Shiekh",
+      "original_width": "2000px",
+      "original_height": "2000px"
+    }
+  ]
+}

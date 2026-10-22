@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Puma Smash V2 white leather sneakers product photo"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "Puma Smash V2 white leather sneakers product photo",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/98e9539ab5f1.jpg",
+      "caption": "",
+      "source": "Amazon.in",
+      "original_width": "1462px",
+      "original_height": "1000px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/dd41f047e3f5.jpeg",
+      "caption": "",
+      "source": "PUMA Smash v2 L Sneakers For Men - Buy PUMA Smash v2 L Sneakers For Men  Online at Best Price - Shop Online for Footwears in India | Flipkart.com",
+      "original_width": "1125px",
+      "original_height": "1500px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/f396d66bceb8.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "1233px",
+      "original_height": "900px"
+    }
+  ]
+}

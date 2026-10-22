@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Nike V2K Run black leather sneakers product photo on white background"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "Nike V2K Run black leather sneakers product photo on white background",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/502c3267f36a.jpg",
+      "caption": "",
+      "source": "eBay",
+      "original_width": "1200px",
+      "original_height": "1200px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/32f9aa911a76.jpg",
+      "caption": "",
+      "source": "Sole Retriever",
+      "original_width": "1070px",
+      "original_height": "760px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/c60e1e4713ef.jpg",
+      "caption": "",
+      "source": "endource",
+      "original_width": "800px",
+      "original_height": "1066px"
+    }
+  ]
+}

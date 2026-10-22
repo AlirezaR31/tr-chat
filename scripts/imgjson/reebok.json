@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Reebok Quick Motion white sneakers product photo"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "Reebok Quick Motion white sneakers product photo",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/1a9e4726fafc.jpg",
+      "caption": "",
+      "source": "Reebok",
+      "original_width": "2000px",
+      "original_height": "2000px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/166a66619ecd.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "1285px",
+      "original_height": "900px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/04345c7d9dcc.jpg",
+      "caption": "",
+      "source": "Shopee Malaysia",
+      "original_width": "1000px",
+      "original_height": "1000px"
+    }
+  ]
+}

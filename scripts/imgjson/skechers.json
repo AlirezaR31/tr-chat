@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Skechers Max Cushioning white walking sneakers product photo"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "Skechers Max Cushioning white walking sneakers product photo",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/0e468845a480.jpg",
+      "caption": "",
+      "source": "Williams Shoes",
+      "original_width": "952px",
+      "original_height": "1100px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/055e1b013ad3.jpg",
+      "caption": "",
+      "source": "SR Max",
+      "original_width": "1500px",
+      "original_height": "749px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/8da52a6ecb28.jpg",
+      "caption": "",
+      "source": "6pm",
+      "original_width": "768px",
+      "original_height": "1024px"
+    }
+  ]
+}

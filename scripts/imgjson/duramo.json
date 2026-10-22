@@ -1,0 +1,40 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Adidas Duramo SL black running shoes product shot"
+✅ Got 4 images
+{
+  "success": true,
+  "query": "Adidas Duramo SL black running shoes product shot",
+  "count": 4,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/505fce4dc1f9.jpg",
+      "caption": "",
+      "source": "ShopSimon",
+      "original_width": "1080px",
+      "original_height": "1080px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/ae17527f2ec4.jpg",
+      "caption": "",
+      "source": "WayUp Sports",
+      "original_width": "1080px",
+      "original_height": "1080px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/bd961b36762c.jpg",
+      "caption": "",
+      "source": "WSS",
+      "original_width": "1500px",
+      "original_height": "1500px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/0710b7c658c6.jpeg",
+      "caption": "",
+      "source": "Nordstrom Rack",
+      "original_width": "2640px",
+      "original_height": "4048px"
+    }
+  ]
+}

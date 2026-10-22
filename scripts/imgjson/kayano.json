@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "Asics Gel-Kayano 14 sneakers product photo"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "Asics Gel-Kayano 14 sneakers product photo",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/d375ebf1ac84.jpg",
+      "caption": "",
+      "source": "Giglio",
+      "original_width": "1125px",
+      "original_height": "1500px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/72ed6f5d961f.jpg",
+      "caption": "",
+      "source": "HBX",
+      "original_width": "1080px",
+      "original_height": "1404px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/190e361935d9.jpg",
+      "caption": "",
+      "source": "Amazon.com",
+      "original_width": "1794px",
+      "original_height": "900px"
+    }
+  ]
+}

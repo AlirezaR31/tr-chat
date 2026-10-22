@@ -1,0 +1,33 @@
+🚀 Initializing Z-AI SDK...
+🔎 Searching images: "New Balance 9060 grey sneakers product photo"
+✅ Got 3 images
+{
+  "success": true,
+  "query": "New Balance 9060 grey sneakers product photo",
+  "count": 3,
+  "ranked": false,
+  "captioned_count": 0,
+  "results": [
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/434e7b7175e2.jpg",
+      "caption": "",
+      "source": "Giglio",
+      "original_width": "1125px",
+      "original_height": "1500px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/5ee6ce6452e1.jpg",
+      "caption": "",
+      "source": "Klarna",
+      "original_width": "1586px",
+      "original_height": "670px"
+    },
+    {
+      "original_url": "https://z-cdn.chatglm.cn/image-search-mcp/images-ppt/84176010f839.jpg",
+      "caption": "",
+      "source": "Amazon",
+      "original_width": "1689px",
+      "original_height": "900px"
+    }
+  ]
+}
