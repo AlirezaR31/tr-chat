@@ -15,7 +15,7 @@ import type {
   Product,
   QuickReply,
 } from "@/lib/types";
-import { CATALOG, getProduct } from "@/lib/data/catalog";
+import { CATALOG, ALL_PRODUCTS, getProduct } from "@/lib/data/catalog";
 import { STORES as STORE_LIST } from "@/lib/data/stores";
 import {
   alternativeStores,
@@ -316,6 +316,19 @@ export function handleMessage(
   return route(nlu, raw, ctx);
 }
 
+/**
+ * Dispatch an intent resolved OUTSIDE the deterministic parser (LLM tier).
+ * The result flows through the exact same route() the rules use, so every
+ * typed block, honesty guard and context mutation behaves identically.
+ */
+export function handleResolved(
+  nlu: NluResult,
+  raw: string,
+  ctx: ConversationContext
+): { turn: ChatTurn; context: ConversationContext } {
+  return route(nlu, raw, ctx);
+}
+
 function route(
   nlu: NluResult,
   raw: string,
@@ -401,7 +414,7 @@ function route(
 
   /* ---------- basket: add ---------- */
   if (nlu.intent === "add_to_basket") {
-    const picked = pickProductFromText(t, ctx) ?? getProduct(ctx.lastAddedId ?? ctx.selectedProductId ?? ctx.recommendedIds[0]);
+    const picked = pickProductFromText(t, ctx, nlu.productRef) ?? getProduct(ctx.lastAddedId ?? ctx.selectedProductId ?? ctx.recommendedIds[0]);
     if (!picked) {
       return {
         context: ctx,
@@ -453,7 +466,7 @@ function route(
 
   /* ---------- basket: remove ---------- */
   if (nlu.intent === "remove_from_basket") {
-    const target = productFromBasket(t, ctx);
+    const target = productFromBasket(t, ctx, nlu.productRef);
     if (!target) {
       return {
         context: ctx,
@@ -578,7 +591,7 @@ function route(
 
   /* ---------- basket: cheaper alternative ---------- */
   if (nlu.intent === "cheaper_alternative") {
-    const target = productFromBasket(t, ctx) ?? resolveSelectedProduct(t, ctx);
+    const target = productFromBasket(t, ctx, nlu.productRef) ?? resolveSelectedProduct(t, ctx, nlu.productRef);
     if (!target) {
       return { context: ctx, turn: { text: "بگو برای کدوم محصول جایگزین ارزون‌تر پیدا کنم؟", blocks: [] } };
     }
@@ -651,7 +664,7 @@ function route(
       if (wantsRoute) {
         return routeTurn(ctx, `شروع از ${nlu.locationName} ثبت شد.`);
       }
-      const product = resolveSelectedProduct(t, ctx);
+      const product = resolveSelectedProduct(t, ctx, nlu.productRef);
       if (!product) {
         return {
           context: ctx,
@@ -688,7 +701,7 @@ function route(
 
   /* ---------- select product ---------- */
   if (nlu.intent === "select_product") {
-    const picked = pickProductFromText(t, ctx) ?? getProduct(ctx.recommendedIds[0]);
+    const picked = pickProductFromText(t, ctx, nlu.productRef) ?? getProduct(ctx.recommendedIds[0]);
     if (!picked) {
       return { context: ctx, turn: { text: "کدوم مدل رو می‌خوای؟ از کارت‌ها انتخاب کن.", blocks: [] } };
     }
@@ -722,7 +735,7 @@ function route(
 
   /* ---------- find stores ---------- */
   if (nlu.intent === "find_stores") {
-    resolveSelectedProduct(t, ctx);
+    resolveSelectedProduct(t, ctx, nlu.productRef);
     if (ctx.selectedProductId && nlu.priorities?.length) ctx.priorities = nlu.priorities;
 
     if (!ctx.location) {
@@ -1237,9 +1250,11 @@ export function handleAction(
 /**
  * Resolve the active product: explicit mention > selected > last compared >
  * top recommendation. Mutates ctx.selectedProductId and returns the product.
+ * `ref` (from the LLM tier) is an explicit product id/model/brand hint and
+ * wins over text matching.
  */
-function resolveSelectedProduct(t: string, ctx: ConversationContext): Product | undefined {
-  const picked = pickProductFromText(t, ctx);
+function resolveSelectedProduct(t: string, ctx: ConversationContext, ref?: string): Product | undefined {
+  const picked = (ref && resolveByRef(ref)) || pickProductFromText(t, ctx);
   if (picked) {
     ctx.selectedProductId = picked.id;
     return picked;
@@ -1256,7 +1271,11 @@ function resolveSelectedProduct(t: string, ctx: ConversationContext): Product | 
 }
 
 /** Resolve a product the user names, restricted to basket items. */
-function productFromBasket(t: string, ctx: ConversationContext): Product | undefined {
+function productFromBasket(t: string, ctx: ConversationContext, ref?: string): Product | undefined {
+  if (ref) {
+    const byRef = resolveByRef(ref);
+    if (byRef && ctx.basket.some((b) => b.productId === byRef.id)) return byRef;
+  }
   for (const item of ctx.basket) {
     const p = getProduct(item.productId);
     if (!p) continue;
@@ -1288,7 +1307,31 @@ const BRAND_HINTS: Array<[string, string[]]> = [
 /** id → hints lookup for basket-item resolution. */
 const PRODUCT_HINTS: Record<string, string[]> = Object.fromEntries(BRAND_HINTS);
 
-function pickProductFromText(t: string, ctx: ConversationContext): Product | undefined {
+/**
+ * Resolve a product from an explicit reference (id / model / brand / name
+ * substring). Used by the LLM tier's productRef and as a fuzzy fallback.
+ */
+function resolveByRef(ref: string): Product | undefined {
+  const q = ref.toLowerCase();
+  return (
+    getProduct(ref) ??
+    ALL_PRODUCTS.find(
+      (p) =>
+        p.id.toLowerCase() === q ||
+        p.model.toLowerCase() === q ||
+        p.id.toLowerCase().includes(q) ||
+        p.model.toLowerCase().includes(q) ||
+        p.brand.toLowerCase() === q ||
+        p.name.includes(ref)
+    )
+  );
+}
+
+function pickProductFromText(t: string, ctx: ConversationContext, ref?: string): Product | undefined {
+  if (ref) {
+    const byRef = resolveByRef(ref);
+    if (byRef) return byRef;
+  }
   for (const [id, hints] of BRAND_HINTS) {
     if (hints.some((h) => t.includes(h))) return getProduct(id);
   }

@@ -87,7 +87,7 @@ d=json.load(sys.stdin)
 bs=[b for b in d['turn']['blocks'] if b['type']=='basket_summary']
 if bs:
     b=bs[0]['basket']
-    print('items:', [(i['productId'], i['assignment']['storeName'] if i['assignment'] else None, i['note']) for i in b['items']])
+    print('items:', [(i['productId'], i['assignment']['storeName'] if i['assignment'] else None, i.get('note')) for i in b['items']])
     print('total:', b['estimatedTotal'], '| savings:', b['savingsVsMax'])
 "
 

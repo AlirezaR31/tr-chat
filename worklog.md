@@ -97,3 +97,34 @@ Stage Summary:
 - DELIVERED: conversational Smart Shopping Basket with server-truth basket view, explainable 3-kind recommendations, exact store-assignment + disclosed-estimate route optimization in 4 modes, interactive in-chat route UI (map + synchronized list), persistent compact basket bar + sheet editor, honest uncertainty/failure recovery (unconfirmed stock, closed at ETA, contacted outcomes, persistent stop exclusions with restore)
 - Honesty preserved end-to-end: demo labels, real haversine distances, disclosed travel-time model, availability only from dataset, no fabricated numbers; recommendations explain "why" and never pressure
 - All 10 section-H evaluation scenarios pass in browser; lint/build/type checks green
+---
+Task ID: 5
+Agent: main (Z.ai)
+Task: Adopt TorobYar backend architecture (github.com/yasinnazari/TorobYar) + fix composer textbox vertical centering
+
+Work Log:
+- Cloned TorobYar reference (FastAPI layered agent: api routes → agent runner w/ tool loop → services → dataset repository → SQLite conversation memory) into torobyar-ref/ for study
+- Composer fix («متن وسط تکس باکس نیست»): root cause = pill container was always items-end; single-line textarea (24px) vs mic button (32px) pinned text 4px below center. Now `multiline` state (height>32) drives items-center (single-line, verified 13px/13px symmetric) ↔ items-end (multiline growth); reset on submit
+- New layered backend under src/server/ mirroring TorobYar:
+  - core/config.ts — single env/behaviour knob (agent enabled, maxToolRounds=3, timeout 14s, memory 20 msgs)
+  - repositories/dataset.ts — single source of truth (products/stores/offer-rows w/ honesty flags: priceIsLive=false, straight_line distances)
+  - services/product-service.ts — TorobYar weighted Persian search ported: normalizeFa (ي/ك/ۀ/ة/tatweel/ZWNJ), colloquial TOKEN_ALIASES (کتونی/مردونه/ارزون/کدونی…), STOP_WORDS, budget-phrase stripping, field weights name5/category3/tags2/brand2/model1, full-phrase bonus, min-match + relaxed fallback, then structured filters + priorityScore re-rank
+  - services/shop-service.ts — offers/nearby/installment views with Persian stock honesty notes + SHOP_SERVICE_NOTE
+  - services/conversation-memory.ts — Prisma Conversation table (sessionId→context+last20 msgs); client context wins when present, server copy is cold-client fallback (verified: basket restored without client echo)
+  - agent/prompts.ts — TorobYar Persian honesty prompt adapted + strict JSON envelope contract (tool_call/intent/reply) + steering rules (style questions → search_products then intent:search; never repeat products in reply; never invent outside catalog)
+  - agent/tools.ts — zod-validated tool registry: search_products, get_product_offers, find_nearby_product_shops, find_payment_shops, find_similar_products, get_basket, update_shopping_preferences (prefDraft + seenProducts side-channels)
+  - agent/runner.ts — two-tier resolveTurn(): rules (nlu.parseMessage) always first; LLM tool-loop ONLY on unknown; forced-final-commit after tool budget (fixed silent fallback-to-unknown bug observed in probe); hard timeout via Promise.race; intent JSON → mapIntent whitelist/coercion → NluResult
+- Orchestrator: exported handleResolved(nlu, raw, ctx) so LLM-resolved intents flow through the SAME route() (typed blocks + honesty guards unchanged); resolveSelectedProduct/productFromBasket/pickProductFromText gained optional ref hint (resolveByRef: id/model/brand/name)
+- /api/chat rewritten as thin pipeline: memory load → resolveTurn → prefDraft merge (incl. explicit clears) → handleResolved/handleMessage/free-reply turn → memory save → basketView + validateBlocks + meta{source}
+- REST parity with TorobYar products.py: GET /api/products/search, /api/products/[id]/offers, /api/products/[id]/nearby (straight_line + radius), /api/products/[id]/payment-shops (in_person_declared + note), /api/health (dataset stats + agent status)
+- Fixed pre-existing Latin-digit leak in variant («سایز 42» → «سایز ۴۲») via toFaDigits in nlu
+- Fixed turn.text undefined crash in memory persistence; smoke script i['note'] → i.get('note')
+- Probes: scripts/llm-probe.ts, scripts/runner-probe.ts (verified glm-4-plus envelope compliance, grounded search results, intent mapping gender/priorities)
+- Verified: dev server E2E — composer centering (numeric box metrics + screenshot), rules tier 184ms, LLM tier tool-loop w/ forced commit, cold-client memory restore, basket add/route/show/clear/remove_stop, full basket-smoke.sh green; lint clean; tsc clean (src/**); production build passes with all new routes
+
+Stage Summary:
+- Backend restructured to TorobYar's layered architecture (thin API → agent → services → repository) while keeping the deterministic typed-block orchestrator as tier-1 truth and the LLM tool-loop as tier-2 for free-form Persian input
+- Server-side conversation memory via Prisma (cold-client restore verified)
+- Honest REST API surface (search/offers/nearby/payment-shops/health) with disclosure flags
+- Composer vertical centering fixed and verified numerically (single-line 13/13px centered; multiline bottom-growth)
+- All previous E2E scenarios still pass; lint/build/typecheck green

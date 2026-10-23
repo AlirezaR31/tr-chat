@@ -21,6 +21,8 @@ export function ChatComposer({
 }) {
   const [value, setValue] = useState("");
   const [listening, setListening] = useState(false);
+  /** single-line text is vertically centered; multiline grows from bottom */
+  const [multiline, setMultiline] = useState(false);
   const recRef = useRef<unknown>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -29,6 +31,7 @@ export function ChatComposer({
     if (!v || busy || disabled) return;
     onSend(v);
     setValue("");
+    setMultiline(false);
     if (inputRef.current) inputRef.current.style.height = "auto";
   };
 
@@ -86,7 +89,8 @@ export function ChatComposer({
     >
       <div
         className={cn(
-          "flex flex-1 items-end gap-1 rounded-full border border-border bg-card px-4 py-2 transition-colors",
+          "flex flex-1 gap-1 rounded-full border border-border bg-card px-4 py-2 transition-colors",
+          multiline ? "items-end" : "items-center",
           listening && "border-primary/60"
         )}
       >
@@ -95,8 +99,12 @@ export function ChatComposer({
           value={value}
           onChange={(e) => {
             setValue(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = Math.min(e.target.scrollHeight, 110) + "px";
+            const el = e.target;
+            el.style.height = "auto";
+            const h = Math.min(el.scrollHeight, 110);
+            el.style.height = h + "px";
+            // one leading-6 line measures ~24px; 2+ lines always > 32px
+            setMultiline(h > 32);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !("ontouchstart" in window)) {

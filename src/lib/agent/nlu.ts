@@ -11,7 +11,7 @@ import type {
   Priority,
   UseCase,
 } from "@/lib/types";
-import { toEnDigits } from "@/lib/format";
+import { toEnDigits, toFaDigits } from "@/lib/format";
 
 export type Intent =
   | "greet"
@@ -194,7 +194,7 @@ export function parseMessage(raw: string, ctx: ConversationContext): NluResult {
   else if (has(t, ["مترو", "اتوبوس", "حمل نقل عمومی", "حمل‌ونقل عمومی", "عمومی"])) res.transport = "transit";
 
   const variantMatch = t.match(/سایز\s*([\d]{2})/);
-  if (variantMatch) res.variant = `سایز ${variantMatch[1]}`;
+  if (variantMatch) res.variant = `سایز ${toFaDigits(variantMatch[1])}`;
   const targetMatch = t.match(/(?:قیمت هدف|حداکثر قیمت)\s*([\d.]+)\s*(میلیون|ملیون|هزار)?/);
   if (targetMatch) {
     const num = parseFloat(targetMatch[1]);
