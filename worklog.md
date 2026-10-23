@@ -128,3 +128,16 @@ Stage Summary:
 - Honest REST API surface (search/offers/nearby/payment-shops/health) with disclosure flags
 - Composer vertical centering fixed and verified numerically (single-line 13/13px centered; multiline bottom-growth)
 - All previous E2E scenarios still pass; lint/build/typecheck green
+---
+Task ID: 6
+Agent: main (Z.ai)
+Task: Write complete attractive README + deployment guide + LLM connection guide + full structure docs
+
+Work Log:
+- Audited real project facts before writing: package.json scripts, prisma schema (Conversation), server/core/config.ts knobs (agent.enabled/maxToolRounds=3/timeoutMs=14s/memory=20), runner.ts two-tier loop + JSON envelope + forced commit, prompts.ts honesty rules, 7 LLM tools, REST endpoints params (q/budget/gender/use_case/priorities; lat/lng/radius), next.config standalone output, Caddyfile, screenshots inventory
+- Selected 5 best E2E screenshots, copied to docs/screenshots/ (hero, recommendations, compare, stores, details)
+- Wrote README.md (666 lines, Persian RTL) with: badges, hero image, TOC, project intro (3 design pillars), features (two-tier engine, Smart Basket, 3 rec kinds, multi-store + route, failure recovery), 4 screenshots grid, ASCII architecture diagram (client → API → agent tiers → orchestrator → services → dataset → SQLite), why-two-tier table, 17-block registry list, complete annotated project tree, LLM connection guide (current z-ai-web-dev-sdk wiring, envelope contract, tools table, config knobs, AGENT_LLM_DISABLED, probe scripts, OpenAI-compatible swap checklist), 8-step deployment guide (install, env, db:push, dev, standalone build/start, systemd unit, Dockerfile + volume note, Caddy/Nginx reverse proxy), production notes (SQLite volume, memory, timeout, health), REST API reference with curl examples, data-honesty model table, testing section (10 acceptance scenarios), extension guide table, credits
+- Fixed post-write issues: hero image reference was undefined ([hero] → real markdown image), TOC anchor punctuation
+
+Stage Summary:
+- DELIVERED: README.md — complete Persian documentation covering architecture, full structure, LLM connection (current + swap guide), and step-by-step deployment (local/systemd/Docker/proxy); screenshots embedded from docs/screenshots/
